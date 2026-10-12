@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Tengwar
+GenericName=Markdown Editor
+Comment=Markdown, UML, ER editor with Git integration
+Exec=tengwar %U
+Icon=tengwar
+Terminal=false
+Categories=Development;TextEditor;Utility;
+StartupWMClass=tengwar
+Keywords=markdown;editor;uml;er;git;diagram;
+MimeType=text/markdown;text/x-markdown;
