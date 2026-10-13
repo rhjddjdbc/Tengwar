@@ -148,8 +148,14 @@ fn find_task_lists(events: &[Event]) -> Vec<bool> {
 
 /// Replaces [[Target]] with [Target](wiki:Target) and
 /// [[Target|Display]] with [Display](wiki:Target).
+///
 /// Skips fenced code blocks (``` or ~~~) and inline code (` or ``).
-fn preprocess_wikilinks(input: &str) -> String {
+///
+/// Targets containing whitespace or parentheses are wrapped in angle
+/// brackets — CommonMark rejects those characters inside a bare link
+/// destination, and without this workaround `[[Big O Notation]]` renders
+/// as literal text instead of a link.
+pub fn preprocess_wikilinks(input: &str) -> String {
     let mut out = String::with_capacity(input.len() + 32);
     let mut in_fence = false;
     let mut fence_char: char = '`';
@@ -235,8 +241,24 @@ fn process_line_wikilinks(line: &str) -> String {
                 if !target.is_empty() {
                     out.push('[');
                     out.push_str(&display);
-                    out.push_str("](wiki:");
-                    out.push_str(&target);
+                    out.push_str("](");
+
+                    // CommonMark rejects spaces and parentheses in a bare
+                    // link destination. Wrap the URL in <> when the target
+                    // contains either, so `[[Big O Notation]]` renders as
+                    // a link instead of literal text.
+                    let needs_wrap = target
+                        .chars()
+                        .any(|c| c.is_whitespace() || c == '(' || c == ')');
+
+                    if needs_wrap {
+                        out.push_str("<wiki:");
+                        out.push_str(&target);
+                        out.push('>');
+                    } else {
+                        out.push_str("wiki:");
+                        out.push_str(&target);
+                    }
                     out.push(')');
                     i = j + 2;
                     continue;
@@ -257,7 +279,7 @@ fn render_math(tex: &str, display: bool) -> Option<String> {
     latex2mathml::latex_to_mathml(tex, style).ok()
 }
 
-fn html_escape(s: &str) -> String {
+pub fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")

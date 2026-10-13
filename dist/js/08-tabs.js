@@ -34,6 +34,13 @@ function updateTabUI(id) {
   if (nameEl) nameEl.textContent = tab.name;
 }
 
+function refreshActiveTab() {
+  if (!tabsBar) return;
+  tabsBar.querySelectorAll('.tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === activeTabId);
+  });
+}
+
 function updateActiveTreeItem() {
   fileTree.querySelectorAll('.tree-item.active').forEach(el => el.classList.remove('active'));
   if (!activeTabId) return;
@@ -68,9 +75,6 @@ async function switchToTab(id) {
     catch (e) { showToast('Load failed: ' + e, 'error'); text = ''; }
   }
   await vimQueue;
-  // vim_load_text — resets undo/redo and marks buffer clean. Correct for
-  // opening/switching documents; vim_set_text would leak undo history
-  // across tabs and pollute the dirty flag.
   const snap = await invoke('vim_load_text', { text: text || '' });
   applySnapshot(snap, { scroll: false });
   updateHighlight();
@@ -83,7 +87,10 @@ async function switchToTab(id) {
   currentFileLabel.classList.add(tab.modified ? 'modified' : 'saved');
   updateActiveTreeItem();
   updateTabUI(id);
+  if (typeof resetUndoHistory === 'function') resetUndoHistory(text || '');
+  refreshActiveTab();
   render(true);
+  if (blockModeEnabled) await enterBlockMode();
   updateStatusbar();
   saveSession();
 }
@@ -105,6 +112,7 @@ async function closeTab(id) {
       await vimQueue;
       await invoke('vim_load_text', { text: '' });
       editorTA.value = '';
+      if (typeof resetUndoHistory === 'function') resetUndoHistory('');
       _lastHighlightedText = null;
       updateHighlight();
       lastAppliedCursor = 0;
@@ -112,6 +120,7 @@ async function closeTab(id) {
       currentFileLabel.classList.remove('saved', 'modified');
       updateActiveTreeItem();
       render(true);
+      if (blockModeEnabled) await enterBlockMode();
     }
   }
   renderTabsBar();
@@ -170,8 +179,6 @@ async function performAutoSave() {
     await vimQueue;
     const snap = vimEnabled ? await invoke('vim_snapshot') : { text: editorTA.value };
     await tab.entry.saveText(snap.text);
-    // Tell the backend the on-disk state matches the buffer, so
-    // snapshot().dirty stays accurate.
     if (vimEnabled) { try { await invoke('vim_mark_saved'); } catch (_) {} }
     tab.content = snap.text;
     tab.modified = false;

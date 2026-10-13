@@ -83,6 +83,7 @@ function replaceOne() {
   const text = editorTA.value;
   const repl = replaceInput.value;
   const newVal = text.slice(0, m.start) + repl + text.slice(m.end);
+  if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
   editorTA.value = newVal;
   updateHighlight();
   markTabModified();
@@ -99,6 +100,7 @@ function replaceAll() {
     const m = findMatches[i];
     newVal = newVal.slice(0, m.start) + repl + newVal.slice(m.end);
   }
+  if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
   editorTA.value = newVal;
   updateHighlight();
   markTabModified();

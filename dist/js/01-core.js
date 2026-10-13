@@ -26,6 +26,8 @@ const statusVim = document.getElementById('status-vim');
 const statusAutosave = document.getElementById('status-autosave');
 
 let currentRepoPath = null;
+let activeFolderAbs = null;      // abs path of the last-clicked folder, or null for root
+let activeFolderRel = '';        // rel path of the last-clicked folder, or '' for root
 let currentBranch = 'main';
 let currentVimMode = 'normal';
 let allFiles = [];
@@ -36,6 +38,7 @@ let tabs = new Map();
 let activeTabId = null;
 let tabCounter = 0;
 let vimEnabled = localStorage.getItem('tengwar-vim-enabled') !== 'false';
+let blockModeEnabled = false;
 let autoSaveEnabled = localStorage.getItem('tengwar-autosave') === 'true';
 let autoSaveTimer = null;
 let scrollSyncEnabled = localStorage.getItem('tengwar-scroll-sync') !== 'false';

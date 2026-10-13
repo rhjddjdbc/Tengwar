@@ -32,6 +32,7 @@ function applyVim(enabled) {
     modeIndicator.style.opacity = '0.5';
   }
   updateStatusbar();
+  if (typeof updateUndoButtons === 'function') updateUndoButtons();
 }
 
 function applyAutoSave(enabled) {
@@ -63,4 +64,31 @@ function applyScrollSync(enabled) {
   localStorage.setItem('tengwar-scroll-sync', enabled ? 'true' : 'false');
   const item = document.getElementById('scrollSyncItem');
   if (item) item.classList.toggle('active', enabled);
+}
+
+function applyBlockMode(enabled) {
+  blockModeEnabled = enabled;
+  localStorage.setItem('tengwar-block-mode', enabled ? 'true' : 'false');
+  const item = document.getElementById('blockModeItem');
+  if (item) item.classList.toggle('active', enabled);
+
+  document.body.classList.toggle('block-mode', enabled);
+
+  const wrap = document.getElementById('editor-wrap');
+  const blk = document.getElementById('block-editor');
+  const modeInd = document.getElementById('mode-indicator');
+
+  if (enabled) {
+    if (wrap) wrap.style.display = 'none';
+    if (blk) blk.style.display = 'block';
+    if (modeInd) modeInd.style.display = 'none';
+    enterBlockMode();
+  } else {
+    exitBlockMode();
+    if (wrap) wrap.style.removeProperty('display');
+    if (blk) blk.style.display = 'none';
+    if (modeInd) modeInd.style.removeProperty('display');
+  }
+  updateStatusbar();
+  if (typeof updateUndoButtons === 'function') updateUndoButtons();
 }

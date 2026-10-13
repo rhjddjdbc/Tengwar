@@ -48,8 +48,7 @@ pub fn set_workspace_root(path: Option<String>) -> Result<(), String> {
 }
 
 /// Rejects any path that is not (or would not be) inside the workspace.
-/// When no workspace is set, allows everything — the frontend is expected
-/// to call `set_workspace_root` right after opening a folder.
+/// When no workspace is set, allows everything.
 pub(crate) fn check_in_workspace(path: &str) -> Result<(), String> {
     let guard = WORKSPACE_ROOT
         .lock()
@@ -123,6 +122,8 @@ pub fn create_dir(path: String) -> Result<(), String> {
 }
 
 /// Robust version: never aborts the whole walk on a single bad folder.
+/// Emits both folder entries (is_dir = true) and file entries, so that
+/// empty folders show up in the tree.
 #[tauri::command]
 pub fn list_dir(root: String) -> Result<Vec<FileEntry>, String> {
     check_in_workspace(&root)?;
@@ -162,6 +163,18 @@ fn walk(root: &Path, cur: &Path, out: &mut Vec<FileEntry>, depth: usize) {
             {
                 continue;
             }
+            // Emit the folder itself so empty folders are visible in the
+            // tree. Files inside will follow as separate entries.
+            let rel = path
+                .strip_prefix(root)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| name.clone());
+            out.push(FileEntry {
+                name: name.clone(),
+                path: rel,
+                is_dir: true,
+                size: 0,
+            });
             walk(root, &path, out, depth + 1);
         } else if file_type.is_file() {
             let ext = path

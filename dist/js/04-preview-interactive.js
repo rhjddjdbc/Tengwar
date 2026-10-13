@@ -15,7 +15,14 @@ function makeInteractive() {
 
   const wikiLinks = preview.querySelectorAll('a[href^="wiki:"]');
   wikiLinks.forEach(a => {
-    const target = a.getAttribute('href').slice(5);
+    const raw = a.getAttribute('href').slice(5);
+    // pulldown-cmark percent-encodes spaces and parens in the URL
+    // (e.g. `Big O Notation` → `Big%20O%20Notation`). Decode before
+    // looking up the target against the file list.
+    let target;
+    try { target = decodeURIComponent(raw); }
+    catch (_) { target = raw; }
+
     const found = resolveWikiTarget(target);
     if (found) {
       a.classList.remove('broken');
@@ -39,11 +46,6 @@ function toggleTaskInSource(index) {
   const text = editorTA.value;
   const lines = text.split('\n');
 
-  // Matches a task-list item at the start of a line, with optional
-  // blockquote prefix (`> `), indentation, and both unordered (-, *, +)
-  // and ordered (1., 2., ...) list markers. This is the same set of
-  // items pulldown-cmark renders as task list items, so the DOM order
-  // matches the source order.
   const taskRegex = /^([\s>]*(?:[-*+]|\d+\.)\s+)\[([ xX])\]/;
 
   let taskCount = -1;
@@ -55,12 +57,12 @@ function toggleTaskInSource(index) {
 
     const isChecked = m[2].toLowerCase() === 'x';
     const newMark = isChecked ? ' ' : 'x';
-    // Only swap the [x]/[ ] marker, preserve everything else.
     lines[i] = lines[i].replace(taskRegex, `$1[${newMark}]`);
 
     const selS = editorTA.selectionStart;
     const selE = editorTA.selectionEnd;
     const st = editorTA.scrollTop;
+    if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
     editorTA.value = lines.join('\n');
     editorTA.setSelectionRange(selS, selE);
     editorTA.scrollTop = st;

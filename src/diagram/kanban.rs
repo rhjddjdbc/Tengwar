@@ -3,16 +3,26 @@ use super::common::{esc, err, svg_start};
 pub(crate) fn render_kanban(lines: &[&str]) -> String {
     let mut columns: Vec<(String, Vec<String>)> = Vec::new();
     let mut current: Option<(String, Vec<String>)> = None;
+    // The first non-empty line establishes the "column indent" baseline.
+    // Mermaid kanban puts columns at one indent level and tasks one level
+    // deeper, but the exact indent width isn't fixed — so we use the
+    // first column's indent as the reference.
+    let mut column_indent: Option<usize> = None;
 
     for raw in lines {
         if raw.trim().is_empty() || raw.trim() == "kanban" { continue; }
         let indent = raw.chars().take_while(|c| c.is_whitespace()).count();
         let name = raw.trim().to_string();
         if name.is_empty() { continue; }
-        if indent == 0 {
+
+        let col_indent = *column_indent.get_or_insert(indent);
+
+        if indent <= col_indent {
+            // Column header.
             if let Some(c) = current.take() { columns.push(c); }
             current = Some((name, Vec::new()));
         } else if let Some(ref mut c) = current {
+            // Task under the current column.
             c.1.push(name);
         }
     }
@@ -58,4 +68,3 @@ pub(crate) fn render_kanban(lines: &[&str]) -> String {
     svg.push_str("</svg>");
     svg
 }
-

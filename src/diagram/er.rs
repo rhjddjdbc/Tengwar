@@ -39,6 +39,26 @@ pub(crate) fn render_er(lines: &[&str]) -> String {
             }
         }
     }
+
+    // Mermaid creates entities implicitly when they appear only in a
+    // relation. Walk the relations and make sure both endpoints exist
+    // as entities, so `A ||--o{ B : "has"` renders two boxes even
+    // without explicit `A { … }` blocks.
+    for rel in &relations {
+        if !entities.contains_key(&rel.from) {
+            entities.entry(rel.from.clone()).or_default();
+        }
+        if !order.contains(&rel.from) {
+            order.push(rel.from.clone());
+        }
+        if !entities.contains_key(&rel.to) {
+            entities.entry(rel.to.clone()).or_default();
+        }
+        if !order.contains(&rel.to) {
+            order.push(rel.to.clone());
+        }
+    }
+
     if order.is_empty() { return err("No entities found."); }
 
     let box_w: f64 = 220.0;
@@ -129,4 +149,3 @@ pub(crate) fn render_er(lines: &[&str]) -> String {
     svg.push_str("</svg>");
     svg
 }
-

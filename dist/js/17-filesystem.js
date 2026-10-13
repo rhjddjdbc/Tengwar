@@ -7,8 +7,10 @@ async function openFolder() {
   try {
     const dir = await openDialog({ directory: true, multiple: false });
     if (!dir) return;
-    await loadFolder(dir);
+    const ok = await loadFolder(dir);
+    if (!ok) return;
     try { await invoke('start_watching', { path: dir }); } catch (e) { console.warn('Watch failed', e); }
+    if (typeof recordVault === 'function') recordVault(dir);
   } catch (e) { console.error(e); showToast(String(e), 'error'); }
 }
 
@@ -16,9 +18,10 @@ async function loadFolder(dir) {
   currentRepoPath = dir;
   allFiles = [];
   fileTree.innerHTML = '';
+  activeFolderAbs = null;
+  activeFolderRel = '';
+  updateNewButtonsHint();
 
-  // Confine all subsequent fs commands to this folder. Server-side
-  // check_in_workspace() rejects anything outside it.
   try {
     await invoke('set_workspace_root', { path: dir });
   } catch (e) {
@@ -27,9 +30,11 @@ async function loadFolder(dir) {
   }
 
   let entries = [];
+  let success = true;
   try {
     entries = await invoke('list_dir', { root: dir });
   } catch (e) {
+    success = false;
     console.error('[loadFolder] list_dir failed:', e);
     fileTree.innerHTML = `
       <div class="empty-state">
@@ -39,39 +44,56 @@ async function loadFolder(dir) {
     showToast('Folder load failed: ' + e, 'error');
   }
 
-  if (entries.length > 0) {
-    const tree = {};
-    for (const e of entries) {
-      const parts = e.path.split('/');
-      let node = tree;
-      for (let i = 0; i < parts.length - 1; i++) {
-        node[parts[i]] = node[parts[i]] || {};
-        node = node[parts[i]];
+  if (success) {
+    const fileCount = entries.filter(e => !e.is_dir).length;
+
+    if (entries.length > 0) {
+      const tree = {};
+      for (const e of entries) {
+        const parts = e.path.split('/');
+        let node = tree;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const seg = parts[i];
+          if (!node[seg]) node[seg] = { _children: {} };
+          node = node[seg]._children;
+        }
+        const leaf = parts[parts.length - 1];
+        if (e.is_dir) {
+          if (!node[leaf]) node[leaf] = { _children: {} };
+        } else {
+          if (!node[leaf]) node[leaf] = {};
+          node[leaf]._file = e;
+        }
       }
-      node[parts[parts.length - 1]] = { _file: e };
+      renderTree(tree, fileTree, dir, '');
+      showToast(`Folder · ${fileCount} file${fileCount === 1 ? '' : 's'}`);
+    } else {
+      fileTree.innerHTML = '<div class="empty-state">No .md files in this folder.</div>';
     }
-    renderTree(tree, fileTree, dir, '');
-    showToast(`Folder · ${entries.length} files`);
-  } else if (entries.length === 0 && fileTree.innerHTML === '') {
-    fileTree.innerHTML = '<div class="empty-state">No .md files in this folder.</div>';
+
+    try { await updateBranchDisplay(); } catch (_) {}
+    try { await refreshGitStatus(); } catch (_) {}
   }
 
-  try { await updateBranchDisplay(); } catch (_) {}
-  try { await refreshGitStatus(); } catch (_) {}
-
+  if (typeof updateVaultButton === 'function') updateVaultButton();
   saveSession();
+  return success;
 }
 
 function renderTree(node, container, root, prefix) {
-  const keys = Object.keys(node).sort((a, b) => {
-    const aF = node[a]._file !== undefined; const bF = node[b]._file !== undefined;
-    if (aF !== bF) return aF ? 1 : -1;
+  const keys = Object.keys(node).filter(k => !k.startsWith('_'));
+  keys.sort((a, b) => {
+    const aIsFile = node[a]._file !== undefined;
+    const bIsFile = node[b]._file !== undefined;
+    if (aIsFile !== bIsFile) return aIsFile ? 1 : -1;
     return a.localeCompare(b);
   });
+
   for (const key of keys) {
     const value = node[key];
     const item = document.createElement('div');
     item.className = 'tree-item';
+
     if (value._file !== undefined) {
       const rel = value._file.path;
       item.dataset.path = rel;
@@ -87,21 +109,68 @@ function renderTree(node, container, root, prefix) {
       item.addEventListener('click', () => openFileEntry(fileEntry));
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        showContextMenu(e.clientX, e.clientY, { type: 'file', path: rel, name: value._file.name, abs: fullPath });
+        e.stopPropagation();
+        showContextMenu(e.clientX, e.clientY, {
+          type: 'file', path: rel, name: value._file.name, abs: fullPath,
+        });
       });
     } else {
+      const folderRel = prefix + key;
+      const folderAbs = root + '/' + folderRel;
+      item.dataset.folderAbs = folderAbs;
       item.innerHTML = `<span class="icon">${ICON_FOLDER}</span> <span class="name">${escapeHtml(key)}</span>`;
       const child = document.createElement('div');
       child.className = 'tree-children';
       container.appendChild(item);
       container.appendChild(child);
+
       item.addEventListener('click', (ev) => {
         ev.stopPropagation();
         child.classList.toggle('open');
-        if (child.children.length === 0) renderTree(value, child, root, prefix + key + '/');
+        if (child.children.length === 0) {
+          renderTree(value._children || {}, child, root, folderRel + '/');
+        }
+        setActiveFolder(folderAbs, folderRel, key);
+      });
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showContextMenu(e.clientX, e.clientY, {
+          type: 'folder',
+          name: key,
+          path: folderRel,
+          abs: folderAbs,
+        });
       });
     }
   }
+}
+
+/* ── Sidebar-button target tracking ──────────────────────────── */
+
+function setActiveFolder(abs, rel, displayName) {
+  activeFolderAbs = abs;
+  activeFolderRel = rel;
+  fileTree.querySelectorAll('.tree-item.target').forEach(el => el.classList.remove('target'));
+  const el = fileTree.querySelector(`.tree-item[data-folder-abs="${CSS.escape(abs)}"]`);
+  if (el) el.classList.add('target');
+  updateNewButtonsHint(displayName);
+}
+
+function resetActiveFolder() {
+  activeFolderAbs = null;
+  activeFolderRel = '';
+  fileTree.querySelectorAll('.tree-item.target').forEach(el => el.classList.remove('target'));
+  updateNewButtonsHint();
+}
+
+function updateNewButtonsHint(displayName) {
+  const newFileBtn = document.getElementById('newFileBtn');
+  const newFolderBtn = document.getElementById('newFolderBtn');
+  if (!newFileBtn || !newFolderBtn) return;
+  const where = displayName || 'root';
+  newFileBtn.title = `New file in ${where}`;
+  newFolderBtn.title = `New folder in ${where}`;
 }
 
 async function openFileEntry(entry) {

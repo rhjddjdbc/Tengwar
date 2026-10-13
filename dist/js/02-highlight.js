@@ -125,8 +125,8 @@ function updateStatusbar() {
   const words = (text.match(/\S+/g) || []).length;
   statusWords.textContent = `${words} word${words === 1 ? '' : 's'}`;
   statusChars.textContent = `${text.length} char${text.length === 1 ? '' : 's'}`;
-  statusVim.classList.toggle('active', vimEnabled);
-  statusVim.textContent = vimEnabled ? 'VIM' : 'EDIT';
+  statusVim.classList.toggle('active', blockModeEnabled || vimEnabled);
+  statusVim.textContent = blockModeEnabled ? 'BLOCK' : (vimEnabled ? 'VIM' : 'EDIT');
   statusAutosave.classList.toggle('active', autoSaveEnabled);
   statusAutosave.textContent = autoSaveEnabled ? 'AUTO' : 'MANUAL';
 }

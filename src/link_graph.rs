@@ -21,7 +21,7 @@ pub struct GraphData {
     pub edges: Vec<GraphEdge>,
 }
 
-fn extract_wikilinks(text: &str) -> Vec<String> {
+pub fn extract_wikilinks(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;

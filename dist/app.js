@@ -1,7 +1,5 @@
-// Loader — injects the 30 feature files into <head> as classic scripts,
-// in order, so they share the global script scope (exactly like having
-// them listed individually in index.html). Not an ES module: no import/export
-// needed, and cross-file variables stay visible.
+// Loader — injects the feature files into <head> as classic scripts,
+// in order, so they share the global script scope.
 
 (function () {
   "use strict";
@@ -36,14 +34,17 @@
     "js/27-theme-presets.js",
     "js/28-theme-editor.js",
     "js/29-layout.js",
-    "js/30-init.js"
+    "js/30-init.js",
+    "js/31-block-editor.js",
+    "js/32-history.js",
+    "js/33-vaults.js"
   ];
 
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
       var s = document.createElement("script");
       s.src = src;
-      s.async = false;   // enforce execution order
+      s.async = false;
       s.defer = false;
       s.onload  = function () { resolve(src); };
       s.onerror = function () { reject(new Error("Failed to load " + src)); };

@@ -37,6 +37,7 @@ const COMMANDS = [
   { cat: 'Format', name: 'Table', action: () => insertText('\n| Col 1 | Col 2 |\n|-------|-------|\n| a     | b     |\n') },
   { cat: 'View', name: 'Toggle Dark Mode', action: () => applyTheme(!document.body.classList.contains('preview-dark')) },
   { cat: 'View', name: 'Toggle Vim Mode', action: () => applyVim(!vimEnabled) },
+  { cat: 'View', name: 'Toggle Block Editor', action: () => applyBlockMode(!blockModeEnabled) },
   { cat: 'View', name: 'Toggle Auto-Save', action: () => applyAutoSave(!autoSaveEnabled) },
   { cat: 'View', name: 'Toggle Scroll Sync', action: () => applyScrollSync(!scrollSyncEnabled) },
   { cat: 'View', name: 'Sidebar to Right', action: () => applySidebarSide(!document.body.classList.contains('sidebar-right')) },
@@ -64,7 +65,6 @@ const COMMANDS = [
 ];
 
 function commandKeyHint(actionLabel) {
-  // Match command-palette entry to a keybinding action via label heuristics.
   const map = {
     'Save': 'save', 'Save As…': 'save-as',
     'New File': 'new-file', 'Open Folder…': 'open-folder',

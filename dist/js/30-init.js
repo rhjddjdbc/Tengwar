@@ -65,6 +65,12 @@ applyCustomTheme();
   updateHighlight();
   installShortcutDispatcher();
 
+  applyBlockMode(localStorage.getItem('tengwar-block-mode') === 'true');
+
+  // Seed the undo history with the initially-loaded document so the
+  // first Ctrl+Z has something to go back to.
+  if (typeof resetUndoHistory === 'function') resetUndoHistory(editorTA.value);
+
   editorTA.focus();
   updateStatusbar();
   checkRecoveryOnStart();

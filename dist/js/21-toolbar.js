@@ -76,6 +76,7 @@ function handleDropdownAction(action) {
     case 'reset-layout': window.__layout.reset(); break;
     case 'toggle-theme': applyTheme(!document.body.classList.contains('preview-dark')); break;
     case 'toggle-vim': applyVim(!vimEnabled); break;
+    case 'toggle-block-mode': applyBlockMode(!blockModeEnabled); break;
     case 'toggle-sidebar': applySidebarSide(!document.body.classList.contains('sidebar-right')); break;
     case 'toggle-autosave': applyAutoSave(!autoSaveEnabled); break;
     case 'toggle-scrollsync': applyScrollSync(!scrollSyncEnabled); break;
@@ -86,26 +87,47 @@ function handleDropdownAction(action) {
 
 /* ═══════════════════════════════════════════════════════════════
    BUTTONS
+
+   "Open Folder" now lives inside the vault dropdown (33-vaults.js),
+   not as a standalone toolbar button — so there's no handler for it
+   here. The guard-style id lookups below make this file robust if
+   any other button ever moves out of index.html.
    ═══════════════════════════════════════════════════════════════ */
-document.getElementById('openFolderBtn').addEventListener('click', openFolder);
-document.getElementById('saveBtn').addEventListener('click', saveFile);
-document.getElementById('newFileBtn').addEventListener('click', newFile);
-document.getElementById('newFolderBtn').addEventListener('click', () => {
+function on(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
+on('saveBtn', 'click', saveFile);
+
+on('newFileBtn', 'click', () => {
   if (!currentRepoPath) { showToast('Open a folder first', 'error'); return; }
-  newFolderInFolder({ abs: currentRepoPath, path: '' });
+  newFileInFolder({
+    abs: activeFolderAbs || currentRepoPath,
+    path: activeFolderRel || '',
+  });
 });
-document.getElementById('fileSearchBtn').addEventListener('click', () => showSearch('files'));
-document.getElementById('lineSearchBtn').addEventListener('click', () => showSearch('lines'));
-document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
-document.getElementById('zoomOutBtn').addEventListener('click', zoomOut);
-document.getElementById('zoomFitBtn').addEventListener('click', zoomFit);
-zoomLabel.addEventListener('click', zoomReset);
-document.getElementById('git-init-btn').addEventListener('click', gitInit);
-document.getElementById('git-clone-btn').addEventListener('click', gitClone);
-document.getElementById('git-commit-btn').addEventListener('click', gitCommitAll);
-document.getElementById('git-push-btn').addEventListener('click', gitPush);
-document.getElementById('git-pull-btn').addEventListener('click', gitPull);
-document.getElementById('git-fetch-btn').addEventListener('click', gitFetch);
-document.getElementById('git-remote-btn').addEventListener('click', setRemote);
-document.getElementById('git-branch-display').addEventListener('click', switchBranch);
-document.getElementById('git-token-btn').addEventListener('click', setGitToken);
+on('newFolderBtn', 'click', () => {
+  if (!currentRepoPath) { showToast('Open a folder first', 'error'); return; }
+  newFolderInFolder({
+    abs: activeFolderAbs || currentRepoPath,
+    path: activeFolderRel || '',
+  });
+});
+
+on('fileSearchBtn', 'click', () => showSearch('files'));
+on('lineSearchBtn', 'click', () => showSearch('lines'));
+on('zoomInBtn', 'click', zoomIn);
+on('zoomOutBtn', 'click', zoomOut);
+on('zoomFitBtn', 'click', zoomFit);
+on('zoomLabel', 'click', zoomReset);
+
+on('git-init-btn', 'click', gitInit);
+on('git-clone-btn', 'click', gitClone);
+on('git-commit-btn', 'click', gitCommitAll);
+on('git-push-btn', 'click', gitPush);
+on('git-pull-btn', 'click', gitPull);
+on('git-fetch-btn', 'click', gitFetch);
+on('git-remote-btn', 'click', setRemote);
+on('git-branch-display', 'click', switchBranch);
+on('git-token-btn', 'click', setGitToken);

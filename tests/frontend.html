@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tengwar — frontend tests</title>
+<style>
+  body {
+    font: 13px/1.55 'SFMono-Regular', Consolas, monospace;
+    background: #1a2029; color: #e6edf3;
+    padding: 24px; max-width: 900px; margin: 0 auto;
+  }
+  h1 { font-size: 16px; margin-bottom: 4px; }
+  .sub { color: #8a96a8; font-size: 12px; margin-bottom: 20px; }
+  .summary {
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 24px;
+    font-weight: 600;
+  }
+  .summary.ok   { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid #4ade80; }
+  .summary.fail { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid #f87171; }
+  .group { margin-bottom: 20px; }
+  .group-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: #8a96a8; margin-bottom: 6px; padding-bottom: 4px;
+    border-bottom: 1px solid #262d38;
+  }
+  .test { padding: 3px 8px; border-radius: 4px; }
+  .test.pass::before { content: '✓'; color: #4ade80; margin-right: 8px; }
+  .test.fail { background: rgba(248,113,113,0.1); color: #f87171; }
+  .test.fail::before { content: '✗'; margin-right: 8px; }
+  .test .err { display: block; margin: 6px 0 4px 20px; font-size: 12px;
+               color: #f87171; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<h1>Tengwar — frontend tests</h1>
+<div class="sub">Pure-function tests, loaded against the real source files in ../dist/js/.</div>
+<div id="summary" class="summary"></div>
+<div id="results"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Minimal DOM required by the source files at load time.
+     Hidden from view — the tests never interact with the UI.
+     ═══════════════════════════════════════════════════════════════ -->
+<div style="display:none">
+  <pre id="editor-highlight"><code></code></pre>
+  <textarea id="editor"></textarea>
+  <div id="preview-pane"></div>
+  <div id="mode-indicator"></div>
+  <div id="currentFile"></div>
+  <div id="toast"></div>
+  <div id="file-tree"></div>
+  <div id="tabs-bar"></div>
+  <span id="zoomLabel"></span>
+  <span id="status-line"></span>
+  <span id="status-words"></span>
+  <span id="status-chars"></span>
+  <span id="status-vim"></span>
+  <span id="status-autosave"></span>
+  <div id="command-palette"><input id="cp-input"><div id="cp-results"></div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Stub Tauri so 01-core.js doesn't crash at module load.
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+window.__TAURI__ = {
+  core:   { invoke: async () => null },
+  dialog: { open: async () => null, save: async () => null },
+  event:  { listen: async () => () => {} },
+  opener: { openUrl: async () => {} },
+};
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Source files under test. Paths relative to this file (tests/).
+     Order matches app.js so cross-file globals resolve correctly.
+     ═══════════════════════════════════════════════════════════════ -->
+<script src="../dist/js/01-core.js"></script>
+<script src="../dist/js/02-highlight.js"></script>
+<script src="../dist/js/04-preview-interactive.js"></script>
+<script src="../dist/js/08-tabs.js"></script>
+<script src="../dist/js/10-keybindings.js"></script>
+<script src="../dist/js/13-command-palette.js"></script>
+<script src="../dist/js/27-theme-presets.js"></script>
+<script src="../dist/js/31-block-editor.js"></script>
+<script src="../dist/js/33-vaults.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Test runner and test cases.
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+"use strict";
+
+/* ── Tiny runner ─────────────────────────────────────────────── */
+const __tests = [];
+function test(name, fn) { __tests.push({ name, fn }); }
+function assert(cond, msg) {
+  if (!cond) throw new Error(msg || 'assertion failed');
+}
+function assertEq(actual, expected, msg) {
+  if (actual !== expected) {
+    throw new Error(
+      (msg || 'not equal') +
+      '\n  expected: ' + JSON.stringify(expected) +
+      '\n  actual:   ' + JSON.stringify(actual)
+    );
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   escapeHtml                             (js/01-core.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('escapeHtml: ampersand', () => assertEq(escapeHtml('a & b'), 'a &amp; b'));
+test('escapeHtml: angle brackets', () => assertEq(escapeHtml('<x>'), '&lt;x&gt;'));
+test('escapeHtml: quotes', () => assertEq(escapeHtml('"q"'), '&quot;q&quot;'));
+test('escapeHtml: mixed', () =>
+  assertEq(escapeHtml('a < b & "c"'), 'a &lt; b &amp; &quot;c&quot;'));
+test('escapeHtml: no special chars', () => assertEq(escapeHtml('hello'), 'hello'));
+test('escapeHtml: empty string', () => assertEq(escapeHtml(''), ''));
+
+/* ═══════════════════════════════════════════════════════════════
+   byte ↔ js index                        (js/01-core.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('jsIndexToByte: ASCII identity', () => assertEq(jsIndexToByte('hello', 3), 3));
+test('jsIndexToByte: 3-byte CJK', () => assertEq(jsIndexToByte('日', 1), 3));
+test('jsIndexToByte: 4-byte emoji', () => assertEq(jsIndexToByte('😀', 2), 4));
+
+test('byteToJsIndex: ASCII identity', () => assertEq(byteToJsIndex('hello', 3), 3));
+test('byteToJsIndex: one CJK char = 3 bytes', () => assertEq(byteToJsIndex('日a', 3), 1));
+test('byteToJsIndex: mid-char byte snaps back', () => assertEq(byteToJsIndex('日a', 2), 0));
+test('byteToJsIndex: zero', () => assertEq(byteToJsIndex('abc', 0), 0));
+
+test('advanceOneChar: ASCII', () => assertEq(advanceOneChar('abc', 0), 1));
+test('advanceOneChar: CJK advances by 1', () => assertEq(advanceOneChar('日', 0), 1));
+test('advanceOneChar: emoji advances by 2', () => assertEq(advanceOneChar('😀', 0), 2));
+test('advanceOneChar: at end stays', () => assertEq(advanceOneChar('a', 1), 1));
+
+/* ═══════════════════════════════════════════════════════════════
+   highlightMarkdown                      (js/02-highlight.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('highlightMarkdown: heading gets tok-heading', () => {
+  const out = highlightMarkdown('# Title');
+  assert(out.includes('tok-heading'), 'missing heading token');
+  assert(out.includes('Title'));
+});
+test('highlightMarkdown: h6 is a heading', () => {
+  assert(highlightMarkdown('###### Small').includes('tok-heading'));
+});
+test('highlightMarkdown: blockquote', () => {
+  assert(highlightMarkdown('> quoted').includes('tok-blockquote'));
+});
+test('highlightMarkdown: task unchecked', () => {
+  assert(highlightMarkdown('- [ ] todo').includes('tok-task-unchecked'));
+});
+test('highlightMarkdown: task checked', () => {
+  assert(highlightMarkdown('- [x] done').includes('tok-task-checked'));
+});
+test('highlightMarkdown: bullet list', () => {
+  assert(highlightMarkdown('- item').includes('tok-marker'));
+});
+test('highlightMarkdown: ordered list', () => {
+  assert(highlightMarkdown('1. first').includes('tok-marker'));
+});
+test('highlightMarkdown: horizontal rule', () => {
+  assert(highlightMarkdown('---').includes('tok-marker'));
+});
+test('highlightMarkdown: bold', () => {
+  assert(highlightMarkdown('**bold**').includes('tok-bold'));
+});
+test('highlightMarkdown: italic', () => {
+  assert(highlightMarkdown('*slanted*').includes('tok-italic'));
+});
+test('highlightMarkdown: inline code', () => {
+  assert(highlightMarkdown('use `x` here').includes('tok-code'));
+});
+test('highlightMarkdown: fence toggles into code block', () => {
+  const out = highlightMarkdown('```\nfoo\n```');
+  assert(out.includes('tok-fence'), 'missing fence');
+  assert(out.includes('tok-code-block'), 'missing code-block');
+});
+test('highlightMarkdown: tilde fence', () => {
+  assert(highlightMarkdown('~~~\nfoo\n~~~').includes('tok-code-block'));
+});
+test('highlightMarkdown: wikilink', () => {
+  assert(highlightMarkdown('see [[Note]]').includes('tok-wikilink'));
+});
+test('highlightMarkdown: wikilink in heading', () => {
+  const out = highlightMarkdown('# [[Note]]');
+  assert(out.includes('tok-heading'));
+  assert(out.includes('tok-wikilink'));
+});
+test('highlightMarkdown: html is escaped', () => {
+  const out = highlightMarkdown('<script>');
+  assert(!out.includes('<script>'), 'raw <script> leaked');
+  assert(out.includes('&lt;script&gt;'));
+});
+test('highlightMarkdown: empty input', () => assertEq(highlightMarkdown(''), ''));
+test('highlightMarkdown: preserves line count', () => {
+  assertEq(highlightMarkdown('a\nb\nc').split('\n').length, 3);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   resolveWikiTarget                      (js/04-preview-interactive.js)
+   ═══════════════════════════════════════════════════════════════ */
+(function setupWikiFiles() {
+  allFiles.length = 0;
+  allFiles.push(
+    { name: 'Big O Notation.md', path: 'Big O Notation.md' },
+    { name: 'Welcome.md',        path: 'Welcome.md' },
+    { name: 'notes.md',          path: 'folder/notes.md' }
+  );
+})();
+
+test('resolveWikiTarget: exact stem', () => {
+  const r = resolveWikiTarget('Welcome');
+  assert(r !== null);
+  assertEq(r.path, 'Welcome.md');
+});
+test('resolveWikiTarget: case-insensitive', () => {
+  assert(resolveWikiTarget('welcome') !== null);
+});
+test('resolveWikiTarget: decodes percent-encoded target', () => {
+  const decoded = decodeURIComponent('Big%20O%20Notation');
+  assertEq(decoded, 'Big O Notation');
+  const r = resolveWikiTarget(decoded);
+  assert(r !== null, 'should find Big O Notation.md after decoding');
+  assertEq(r.path, 'Big O Notation.md');
+});
+test('resolveWikiTarget: missing returns null', () => {
+  assertEq(resolveWikiTarget('nonexistent'), null);
+});
+test('resolveWikiTarget: subpath by suffix', () => {
+  const r = resolveWikiTarget('notes');
+  assert(r !== null);
+  assertEq(r.path, 'folder/notes.md');
+});
+test('resolveWikiTarget: exact path with extension', () => {
+  const r = resolveWikiTarget('Welcome.md');
+  assert(r !== null);
+  assertEq(r.path, 'Welcome.md');
+});
+test('resolveWikiTarget: path stem without extension', () => {
+  const r = resolveWikiTarget('folder/notes');
+  assert(r !== null);
+  assertEq(r.path, 'folder/notes.md');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   normalizeCombo / comboDisplay          (js/10-keybindings.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('normalizeCombo: ctrl+s', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, key: 's' }),
+    'ctrl+s'
+  );
+});
+test('normalizeCombo: ctrl+shift+s', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: true, shiftKey: true, altKey: false, metaKey: false, key: 'S' }),
+    'ctrl+shift+s'
+  );
+});
+test('normalizeCombo: ctrl+shift+alt+a', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: true, shiftKey: true, altKey: true, metaKey: false, key: 'a' }),
+    'ctrl+shift+alt+a'
+  );
+});
+test('normalizeCombo: bare letter is rejected', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, key: 'a' }),
+    ''
+  );
+});
+test('normalizeCombo: function key alone is allowed', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, key: 'F1' }),
+    'f1'
+  );
+});
+test('normalizeCombo: function key with ctrl', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, key: 'F5' }),
+    'ctrl+f5'
+  );
+});
+test('normalizeCombo: modifier alone is rejected', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, key: 'Shift' }),
+    ''
+  );
+});
+test('normalizeCombo: plus normalizes to =', () => {
+  assertEq(
+    normalizeCombo({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, key: '+' }),
+    'ctrl+='
+  );
+});
+test('comboDisplay: ctrl+s', () => assertEq(comboDisplay('ctrl+s'), 'Ctrl+S'));
+test('comboDisplay: ctrl+shift+a', () => assertEq(comboDisplay('ctrl+shift+a'), 'Ctrl+Shift+A'));
+test('comboDisplay: arrowup', () => assertEq(comboDisplay('arrowup'), '↑'));
+test('comboDisplay: escape', () => assertEq(comboDisplay('escape'), 'Esc'));
+test('comboDisplay: empty string', () => assertEq(comboDisplay(''), ''));
+
+/* ═══════════════════════════════════════════════════════════════
+   fuzzyMatchJS                            (js/13-command-palette.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('fuzzyMatchJS: empty pattern matches', () => {
+  assert(fuzzyMatchJS('', 'anything') !== null);
+});
+test('fuzzyMatchJS: non-subsequence returns null', () => {
+  assertEq(fuzzyMatchJS('xyz', 'hello'), null);
+});
+test('fuzzyMatchJS: subsequence matches', () => {
+  const r = fuzzyMatchJS('hl', 'hello');
+  assert(r !== null);
+  assert(Array.isArray(r.positions));
+});
+test('fuzzyMatchJS: case-insensitive', () => {
+  assert(fuzzyMatchJS('HEL', 'hello') !== null);
+});
+test('fuzzyMatchJS: positions point into the original string', () => {
+  const r = fuzzyMatchJS('abc', 'aXbXc');
+  assertEq(r.positions.length, 3);
+  assertEq('aXbXc'[r.positions[0]], 'a');
+  assertEq('aXbXc'[r.positions[1]], 'b');
+  assertEq('aXbXc'[r.positions[2]], 'c');
+});
+test('fuzzyMatchJS: word boundary scores higher', () => {
+  const atBoundary = fuzzyMatchJS('foo', 'foo bar');
+  const insideWord = fuzzyMatchJS('foo', 'xfoobar');
+  assert(atBoundary.score > insideWord.score,
+         'boundary ' + atBoundary.score + ' should beat ' + insideWord.score);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   splitIntoBlocks / joinBlocks / isClosingFence   (js/31-block-editor.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('splitIntoBlocks: two blocks', () => {
+  const b = splitIntoBlocks('a\n\nb');
+  assertEq(b.length, 2);
+  assertEq(b[0].raw, 'a');
+  assertEq(b[1].raw, 'b');
+});
+test('splitIntoBlocks: preserves multiple blank lines', () => {
+  const b = splitIntoBlocks('a\n\n\n\nb');
+  assertEq(b.length, 2);
+  assertEq(b[1].blanksBefore, 3);
+});
+test('splitIntoBlocks: fenced block is one block', () => {
+  assertEq(splitIntoBlocks('```\n\n\n```').length, 1);
+});
+test('splitIntoBlocks: tilde fence is one block', () => {
+  assertEq(splitIntoBlocks('~~~\n\n~~~').length, 1);
+});
+test('splitIntoBlocks: empty input', () => {
+  assertEq(splitIntoBlocks('').length, 0);
+});
+test('splitIntoBlocks: only whitespace', () => {
+  assertEq(splitIntoBlocks('\n\n\n').length, 0);
+});
+test('splitIntoBlocks: fence with language', () => {
+  assertEq(splitIntoBlocks('```js\nfoo\n```').length, 1);
+});
+test('splitIntoBlocks: fence line, then blank, then text', () => {
+  const b = splitIntoBlocks('before\n\n```\na\n\nb\n```\n\nafter');
+  assertEq(b.length, 3);
+  assertEq(b[0].raw, 'before');
+  assert(b[1].raw.startsWith('```'));
+  assertEq(b[2].raw, 'after');
+});
+test('joinBlocks: roundtrip simple', () => {
+  const src = 'a\n\nb\n\nc';
+  assertEq(joinBlocks(splitIntoBlocks(src)), src);
+});
+test('joinBlocks: roundtrip with extra blanks', () => {
+  const src = 'a\n\n\n\nb';
+  assertEq(joinBlocks(splitIntoBlocks(src)), src);
+});
+
+test('isClosingFence: 3 backticks', () => assert(isClosingFence('```', '`')));
+test('isClosingFence: 5 backticks', () => assert(isClosingFence('`````', '`')));
+test('isClosingFence: 2 backticks is not a fence', () => assert(!isClosingFence('``', '`')));
+test('isClosingFence: 3 backticks + language is not a closing fence',
+     () => assert(!isClosingFence('```js', '`')));
+test('isClosingFence: 3 backticks + space is a closing fence',
+     () => assert(isClosingFence('``` ', '`')));
+test('isClosingFence: tilde fence with backtick char mismatch',
+     () => assert(!isClosingFence('~~~', '`')));
+test('isClosingFence: tilde fence with tilde char match',
+     () => assert(isClosingFence('~~~', '~')));
+
+/* ═══════════════════════════════════════════════════════════════
+   vaultName                              (js/33-vaults.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('vaultName: simple absolute path', () => assertEq(vaultName('/home/user/vault'), 'vault'));
+test('vaultName: trailing slash', () => assertEq(vaultName('/home/user/vault/'), 'vault'));
+test('vaultName: multiple trailing slashes', () => assertEq(vaultName('/home/user/vault///'), 'vault'));
+test('vaultName: relative path', () => assertEq(vaultName('notes'), 'notes'));
+test('vaultName: empty string', () => assertEq(vaultName(''), 'vault'));
+test('vaultName: root path', () => assertEq(vaultName('/'), 'vault'));
+test('vaultName: nested', () => assertEq(vaultName('/a/b/c/d/e'), 'e'));
+
+/* ═══════════════════════════════════════════════════════════════
+   createTab                              (js/08-tabs.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('createTab: returns unique id', () => {
+  tabs.clear();
+  const a = createTab({ name: 'a' });
+  const b = createTab({ name: 'b' });
+  assert(a !== b);
+  assert(a.startsWith('tab-'));
+  assert(b.startsWith('tab-'));
+});
+test('createTab: stores tab in map', () => {
+  tabs.clear();
+  const id = createTab({ name: 'x', content: 'hello' });
+  const t = tabs.get(id);
+  assert(t !== undefined);
+  assertEq(t.name, 'x');
+  assertEq(t.content, 'hello');
+  assertEq(t.modified, false);
+});
+test('createTab: defaults for path and entry', () => {
+  tabs.clear();
+  const id = createTab({ name: 'y' });
+  const t = tabs.get(id);
+  assertEq(t.path, null);
+  assertEq(t.entry, null);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME_VARS structure                   (js/27-theme-presets.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('THEME_VARS: has expected categories', () => {
+  ['app', 'syntax', 'diagram', 'diagramBoxes'].forEach(cat => {
+    assert(Array.isArray(THEME_VARS[cat]), 'missing category: ' + cat);
+    assert(THEME_VARS[cat].length > 0, 'empty category: ' + cat);
+  });
+});
+test('THEME_VARS: every entry has key, label, defL, defD', () => {
+  for (const cat of Object.keys(THEME_VARS)) {
+    for (const v of THEME_VARS[cat]) {
+      assert(v.key, 'missing key in ' + cat);
+      assert(v.label, 'missing label for ' + v.key);
+      assert(v.defL, 'missing defL for ' + v.key);
+      assert(v.defD, 'missing defD for ' + v.key);
+    }
+  }
+});
+test('THEME_VARS: every key starts with --', () => {
+  for (const cat of Object.keys(THEME_VARS)) {
+    for (const v of THEME_VARS[cat]) {
+      assert(v.key.startsWith('--'), 'key does not start with --: ' + v.key);
+    }
+  }
+});
+test('THEME_VARS: no duplicate keys', () => {
+  const seen = new Set();
+  for (const cat of Object.keys(THEME_VARS)) {
+    for (const v of THEME_VARS[cat]) {
+      assert(!seen.has(v.key), 'duplicate theme variable: ' + v.key);
+      seen.add(v.key);
+    }
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   PRESETS structure                      (js/27-theme-presets.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('PRESETS: default is null', () => {
+  assertEq(PRESETS.default, null);
+});
+test('PRESETS: every non-default preset has light and dark', () => {
+  for (const name of Object.keys(PRESETS)) {
+    if (name === 'default') continue;
+    const p = PRESETS[name];
+    assert(p !== null, 'preset ' + name + ' is null');
+    assert(p.light, 'preset ' + name + ' missing light');
+    assert(p.dark, 'preset ' + name + ' missing dark');
+  }
+});
+test('PRESETS: every preset overrides the same keys', () => {
+  const names = Object.keys(PRESETS).filter(n => n !== 'default');
+  if (names.length === 0) return;
+  const ref = Object.keys(PRESETS[names[0]].light).sort().join(',');
+  for (const name of names) {
+    const l = Object.keys(PRESETS[name].light).sort().join(',');
+    const d = Object.keys(PRESETS[name].dark).sort().join(',');
+    assertEq(l, ref, 'preset ' + name + ' light keys differ');
+    assertEq(d, ref, 'preset ' + name + ' dark keys differ');
+  }
+});
+test('PRESETS: all values are non-empty strings', () => {
+  for (const name of Object.keys(PRESETS)) {
+    if (name === 'default') continue;
+    for (const mode of ['light', 'dark']) {
+      for (const [key, val] of Object.entries(PRESETS[name][mode])) {
+        assert(typeof val === 'string' && val.length > 0,
+               name + '.' + mode + '.' + key + ' is not a string');
+      }
+    }
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   findActionByCombo / findConflicts      (js/10-keybindings.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('findActionByCombo: ctrl+s resolves to save', () => {
+  const a = findActionByCombo('ctrl+s');
+  assert(a !== null);
+  assertEq(a.id, 'save');
+});
+test('findActionByCombo: ctrl+p resolves to find-files', () => {
+  const a = findActionByCombo('ctrl+p');
+  assert(a !== null);
+  assertEq(a.id, 'find-files');
+});
+test('findActionByCombo: unknown combo returns null', () => {
+  assertEq(findActionByCombo('ctrl+shift+f99'), null);
+});
+test('findConflicts: ctrl+s excluding save is empty', () => {
+  assertEq(findConflicts('ctrl+s', 'save').length, 0);
+});
+test('findConflicts: ctrl+s excluding another id finds save', () => {
+  const conflicts = findConflicts('ctrl+s', 'nonexistent-id');
+  assertEq(conflicts.length, 1);
+  assertEq(conflicts[0].id, 'save');
+});
+test('findConflicts: empty combo returns empty array', () => {
+  assertEq(findConflicts('', 'save').length, 0);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   keybindings state                      (js/10-keybindings.js)
+   ═══════════════════════════════════════════════════════════════ */
+test('keybindings: save is bound to ctrl+s', () => {
+  assertEq(keybindings.save, 'ctrl+s');
+});
+test('keybindings: every action has a string value', () => {
+  for (const a of KEY_ACTIONS) {
+    assert(typeof keybindings[a.id] === 'string',
+           'action ' + a.id + ' has no binding');
+  }
+});
+test('KEY_ACTIONS: every entry has id, cat, label, def, scope', () => {
+  for (const a of KEY_ACTIONS) {
+    assert(a.id, 'missing id');
+    assert(a.cat, 'missing cat for ' + a.id);
+    assert(a.label, 'missing label for ' + a.id);
+    assert(typeof a.def === 'string', 'missing def for ' + a.id);
+    assert(a.scope, 'missing scope for ' + a.id);
+  }
+});
+test('KEY_ACTIONS: no duplicate ids', () => {
+  const seen = new Set();
+  for (const a of KEY_ACTIONS) {
+    assert(!seen.has(a.id), 'duplicate action id: ' + a.id);
+    seen.add(a.id);
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   RUNNER
+   ═══════════════════════════════════════════════════════════════ */
+(function runAll() {
+  const resultsEl = document.getElementById('results');
+  const summaryEl = document.getElementById('summary');
+  let passed = 0, failed = 0;
+
+  const groups = new Map();
+  for (const t of __tests) {
+    const colon = t.name.indexOf(':');
+    const groupName = colon > 0 ? t.name.slice(0, colon).trim() : 'misc';
+    if (!groups.has(groupName)) groups.set(groupName, []);
+    groups.get(groupName).push(t);
+  }
+
+  for (const [groupName, tests] of groups) {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+    const title = document.createElement('div');
+    title.className = 'group-title';
+    title.textContent = groupName + '  (' + tests.length + ')';
+    groupEl.appendChild(title);
+
+    for (const t of tests) {
+      const el = document.createElement('div');
+      el.className = 'test';
+      try {
+        t.fn();
+        el.classList.add('pass');
+        el.textContent = t.name;
+        passed++;
+      } catch (err) {
+        el.classList.add('fail');
+        el.textContent = t.name;
+        const errEl = document.createElement('span');
+        errEl.className = 'err';
+        errEl.textContent = err.message;
+        el.appendChild(errEl);
+        failed++;
+      }
+      groupEl.appendChild(el);
+    }
+    resultsEl.appendChild(groupEl);
+  }
+
+  summaryEl.textContent = passed + ' passed, ' + failed + ' failed';
+  summaryEl.classList.add(failed === 0 ? 'ok' : 'fail');
+  document.title = (failed === 0 ? '✓' : '✗') + ' Tengwar tests';
+})();
+</script>
+</body>
+</html>

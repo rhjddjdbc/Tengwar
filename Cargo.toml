@@ -29,6 +29,14 @@ thiserror = "2"
 regex = "1"
 once_cell = "1"
 
+[lib]
+name = "tengwar"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tengwar"
+path = "src/main.rs"
+
 [profile.release]
 opt-level = "s"
 lto = true

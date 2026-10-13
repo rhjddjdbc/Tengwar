@@ -21,12 +21,14 @@ function handleAutoPair(e) {
   if (start !== end) {
     const sel = text.slice(start, end);
     const wrapped = key + sel + PAIRS[key];
+    if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
     editorTA.value = text.slice(0, start) + wrapped + text.slice(end);
     editorTA.selectionStart = editorTA.selectionEnd = start + wrapped.length;
     return true;
   }
 
   const close = PAIRS[key];
+  if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
   editorTA.value = text.slice(0, start) + key + close + text.slice(start);
   editorTA.selectionStart = editorTA.selectionEnd = start + 1;
   return true;
@@ -41,6 +43,7 @@ function wrapSelection(before, after = before, placeholder = '') {
   const text = editorTA.value;
   const sel = text.slice(start, end) || placeholder;
   const newText = text.slice(0, start) + before + sel + after + text.slice(end);
+  if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
   editorTA.value = newText;
   if (start === end) {
     editorTA.selectionStart = start + before.length;
@@ -62,6 +65,7 @@ function insertText(text) {
   const start = editorTA.selectionStart;
   const end = editorTA.selectionEnd;
   const val = editorTA.value;
+  if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
   editorTA.value = val.slice(0, start) + text + val.slice(end);
   editorTA.selectionStart = editorTA.selectionEnd = start + text.length;
   updateHighlight();

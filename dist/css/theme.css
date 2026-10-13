@@ -1,0 +1,92 @@
+/* ═══════════════════════════════════════════════════════════════
+   THEME VARIABLES — light defaults
+   body.preview-dark overrides chrome + preview + diagrams + syntax
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: light;
+
+  /* chrome */
+  --bg-0: #fbfbfd; --bg-1: #ffffff; --bg-2: #f6f8fa; --bg-3: #eef1f5;
+  --border-1: #e6e8eb; --border-2: #d0d7de;
+  --fg-0: #1a2029; --fg-1: #57606a; --fg-2: #6e7781;
+  --accent: #5f7de0; --accent-hi: #7c9cff; --accent-lo: #4d68c0;
+  --accent-glow: rgba(95, 125, 224, 0.15);
+  --success: #16a34a; --warn: #d97706; --error: #dc2626;
+  --modified: #d97706; --added: #16a34a; --deleted: #dc2626; --untracked: #6e7781;
+
+  /* preview — derived from chrome so theme presets apply automatically */
+  --preview-bg: var(--bg-1);
+  --preview-fg: var(--fg-0);
+
+  /* layout */
+  --radius-s: 6px; --radius-m: 10px; --radius-l: 14px;
+  --shadow-s: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-l: 0 12px 32px rgba(0,0,0,0.15);
+  --sidebar-width: 280px;
+
+  /* diagrams */
+  --d-bg: #ffffff; --d-box: #eef3ff; --d-box2: #fff4e0;
+  --d-box3: #eafcf0; --d-box4: #f3eaff;
+  --d-stroke: #c5cdd8; --d-stroke2: #e5d0a8; --d-stroke3: #a8d9b8;
+  --d-fg: #1a2029; --d-muted: #6e7a89;
+  --d-accent: #5f7de0; --d-accent2: #d18616; --d-accent3: #10b981;
+  --d-grid: #e6e8eb; --d-line: #c5cdd8;
+
+  /* syntax highlight (light) */
+  --syn-heading:        #0550ae;
+  --syn-marker:         #6e7781;
+  --syn-bold:           #1a2029;
+  --syn-italic:         #1a2029;
+  --syn-strike:         #6e7781;
+  --syn-code:           #cf222e;
+  --syn-code-bg:        #f0f1f4;
+  --syn-code-block:     #24292f;
+  --syn-blockquote:     #57606a;
+  --syn-link-text:      #0550ae;
+  --syn-link-url:       #6e7781;
+  --syn-wikilink:       #7c3aed;
+  --syn-task-checked:   #16a34a;
+  --syn-task-unchecked: #6e7781;
+  --syn-task-done:      #8b949e;
+}
+
+body.preview-dark {
+  color-scheme: dark;
+
+  --bg-0: #0d1117; --bg-1: #131820; --bg-2: #1a2029; --bg-3: #232a35;
+  --border-1: #262d38; --border-2: #2f3743;
+  --fg-0: #e6edf3; --fg-1: #a9b4c0; --fg-2: #6e7a89;
+  --accent: #7c9cff; --accent-hi: #97b1ff; --accent-lo: #5f7de0;
+  --accent-glow: rgba(124, 156, 255, 0.15);
+  --success: #4ade80; --warn: #fbbf24; --error: #f87171;
+  --modified: #fbbf24; --added: #4ade80; --deleted: #f87171; --untracked: #6e7a89;
+
+  --preview-bg: var(--bg-0);
+  --preview-fg: var(--fg-0);
+
+  --shadow-s: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-l: 0 12px 32px rgba(0,0,0,0.45);
+
+  --d-bg: #161b22; --d-box: #1e2530; --d-box2: #2d2418;
+  --d-box3: #16281f; --d-box4: #241b30;
+  --d-stroke: #303845; --d-stroke2: #4a3d24; --d-stroke3: #2d4a38;
+  --d-fg: #e6edf3; --d-muted: #8a96a8;
+  --d-accent: #7c9cff; --d-accent2: #fbbf24; --d-accent3: #34d399;
+  --d-grid: #262d38; --d-line: #4a5563;
+
+  --syn-heading:        #79c0ff;
+  --syn-marker:         #6e7681;
+  --syn-bold:           #e6edf3;
+  --syn-italic:         #e6edf3;
+  --syn-strike:         #6e7681;
+  --syn-code:           #ff7b72;
+  --syn-code-bg:        #21262d;
+  --syn-code-block:     #e6edf3;
+  --syn-blockquote:     #8b949e;
+  --syn-link-text:      #79c0ff;
+  --syn-link-url:       #6e7681;
+  --syn-wikilink:       #cba6f7;
+  --syn-task-checked:   #4ade80;
+  --syn-task-unchecked: #6e7681;
+  --syn-task-done:      #8b949e;
+}
