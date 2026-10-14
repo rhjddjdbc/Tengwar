@@ -1,2 +1,47 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# ═══════════════════════════════════════════════════════════════
+# Line endings
+# ═══════════════════════════════════════════════════════════════
+*.sh    text eol=lf
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.json  text eol=lf
+*.js    text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+
+# Windows-specific scripts keep CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# ═══════════════════════════════════════════════════════════════
+# Binary files — never attempt diff or EOL conversion
+# ═══════════════════════════════════════════════════════════════
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.avif  binary
+*.svg   text
+
+# ═══════════════════════════════════════════════════════════════
+# GitHub Linguist — dist/ is source, not a build artifact
+#
+# The default Linguist config treats dist/ as a vendored/build
+# directory and ignores everything inside it. In this project dist/
+# is the source of truth for the frontend — the files are edited
+# directly, there is no bundling step. These three overrides tell
+# Linguist to count them.
+# ═══════════════════════════════════════════════════════════════
+dist/** linguist-vendored=false
+dist/** linguist-generated=false
+dist/** linguist-documentation=false
+
+# The browser test harness is not documentation.
+tests/frontend.html linguist-documentation=false
