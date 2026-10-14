@@ -131,6 +131,12 @@ async function enterBlockMode() {
 }
 
 function exitBlockMode() {
+  // Nothing to sync when the block editor was never populated.
+  // Protects against `applyBlockMode(false)` being called before the
+  // editor has any content — which would otherwise overwrite the
+  // loaded document with an empty string.
+  if (currentBlocks.length === 0 && editingBlockIdx < 0) return;
+
   if (editingBlockIdx >= 0) {
     editingBlockIdx = -1;
   }
@@ -201,9 +207,9 @@ async function handleBlockLink(a) {
   if (!href) return;
 
   if (href.startsWith('wiki:')) {
-    // Match the preview handler — pulldown-cmark percent-encodes the
-    // target URL, so `wiki:Big%20O%20Notation` has to be decoded back
-    // to `Big O Notation` before lookup.
+    // pulldown-cmark percent-encodes the target URL, so
+    // `wiki:Big%20O%20Notation` has to be decoded back to
+    // `Big O Notation` before lookup.
     const raw = href.slice(5);
     let target;
     try { target = decodeURIComponent(raw); }
@@ -314,7 +320,6 @@ function reindexBlocks() {
 function syncBlocksToEditor() {
   const joined = joinBlocks(currentBlocks);
   if (joined === editorTA.value) return;
-  // Capture pre-mutation value for the undo stack.
   if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot();
   editorTA.value = joined;
   _lastHighlightedText = null;

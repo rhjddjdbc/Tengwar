@@ -19,7 +19,6 @@ function closeDiffViewer() {
 }
 
 if (diffStaged) {
-  // Keep the checkbox state in sync with our internal mode
   diffStaged.checked = (diffMode === 'staged');
   diffStaged.addEventListener('change', () => {
     diffMode = diffStaged.checked ? 'staged' : 'unstaged';
@@ -67,7 +66,10 @@ function renderDiff(text) {
   diffBody.innerHTML = html;
 }
 
-document.getElementById('diffBtn').addEventListener('click', openDiffViewer);
+// Diff button lives in the sidebar git panel now.
+const diffBtn = document.getElementById('git-diff-btn');
+if (diffBtn) diffBtn.addEventListener('click', openDiffViewer);
+
 document.getElementById('diff-close').addEventListener('click', closeDiffViewer);
 document.getElementById('diff-refresh').addEventListener('click', refreshDiff);
 diffPopup.addEventListener('mousedown', (e) => { if (e.target === diffPopup) closeDiffViewer(); });

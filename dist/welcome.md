@@ -14,7 +14,7 @@ Everything below works **offline** — no external services.
 
 ## Markdown
 
-**Bold**, *italic*, ~~strikethrough~~, `inline code`, [links](https://example.com).
+**Bold**, *italic*, ~~strikethrough~~, `inline code`, [links](https://github.com/rhjddjdbc).
 
 ## Task lists
 

@@ -9,6 +9,19 @@ function createTab({ name, path = null, entry = null, content = '' }) {
   return id;
 }
 
+/* ── Empty-state overlay ─────────────────────────────────────── */
+
+function updateNoFileBanner() {
+  const banner = document.getElementById('no-file-banner');
+  if (!banner) return;
+  const hasTab = activeTabId !== null && tabs.has(activeTabId);
+  banner.hidden = hasTab;
+  const wrap = document.getElementById('editor-wrap');
+  const blk = document.getElementById('block-editor');
+  if (wrap) wrap.style.visibility = hasTab ? '' : 'hidden';
+  if (blk && !blockModeEnabled) blk.style.display = 'none';
+}
+
 function renderTabsBar() {
   tabsBar.innerHTML = '';
   for (const [id, tab] of tabs) {
@@ -23,6 +36,7 @@ function renderTabsBar() {
     tabsBar.appendChild(el);
   }
   saveSession();
+  updateNoFileBanner();
 }
 
 function updateTabUI(id) {
@@ -93,6 +107,7 @@ async function switchToTab(id) {
   if (blockModeEnabled) await enterBlockMode();
   updateStatusbar();
   saveSession();
+  updateNoFileBanner();
 }
 
 async function closeTab(id) {
@@ -125,6 +140,7 @@ async function closeTab(id) {
   }
   renderTabsBar();
   saveSession();
+  updateNoFileBanner();
 }
 
 function markTabModified() {

@@ -34,7 +34,6 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
             depth.insert(n.clone(), 0);
         }
     }
-    // Falls keine reinen Sources existieren (Zyklus), nimm ausgehende Nodes
     if depth.is_empty() {
         for n in &all_nodes {
             if has_outgoing.contains(n) {
@@ -46,7 +45,6 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
         depth.insert(all_nodes[0].clone(), 0);
     }
 
-    // Longest-path fixpoint
     for _ in 0..all_nodes.len() + 2 {
         let mut changed = false;
         for (f, t, _) in &flows {
@@ -70,7 +68,7 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
         columns[d].push(n.clone());
     }
 
-    // ── Node values (max von rein/raus) ──────────────────────
+    // ── Node values ──────────────────────────────────────────
     let mut node_value: HashMap<String, f64> = HashMap::new();
     for n in &all_nodes {
         let incoming: f64 = flows.iter().filter(|(_, t, _)| t == n).map(|(_, _, v)| v).sum();
@@ -89,7 +87,6 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
     let target_content_h: f64 = 400.0;
     let min_node_h: f64 = 22.0;
 
-    // Skalierung so wählen, dass die höchste Spalte in target_content_h passt
     let col_totals: Vec<f64> = columns.iter()
         .map(|col| col.iter().map(|n| node_value.get(n).copied().unwrap_or(1.0)).sum())
         .collect();
@@ -121,7 +118,7 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
         + max_depth as f64 * (col_gap + node_w)
         + node_w;
 
-    // ── Node-Positionen ──────────────────────────────────────
+    // ── Node positions ───────────────────────────────────────
     let mut node_y: HashMap<String, f64> = HashMap::new();
     let mut node_h_map: HashMap<String, f64> = HashMap::new();
     for (di, col) in columns.iter().enumerate() {
@@ -136,11 +133,17 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
         }
     }
 
-    // ── Farben ───────────────────────────────────────────────
-    let palette: [&str; 8] = [
-        "#5f7de0", "#10b981", "#d18616", "#a78bfa",
-        "#22d3ee", "#f87171", "#fbbf24", "#34d399",
+    // ── Colors ───────────────────────────────────────────────
+    // CSS variables so the diagram follows the active theme.
+    // Transparency is handled by `fill-opacity` on the path, not by
+    // baking rgba() values into the fill attribute.
+    let palette: [&str; 4] = [
+        "var(--d-accent)",
+        "var(--d-accent3)",
+        "var(--d-accent2)",
+        "var(--d-box4)",
     ];
+
     let mut node_color: HashMap<String, String> = HashMap::new();
     if let Some(first) = columns.first() {
         for (i, n) in first.iter().enumerate() {
@@ -162,7 +165,7 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
             .or_insert_with(|| palette[i % palette.len()].into());
     }
 
-    // ── Flow-Stapel ──────────────────────────────────────────
+    // ── Flow stacking ────────────────────────────────────────
     let mut sorted_flows = flows.clone();
     sorted_flows.sort_by(|a, b| {
         let a_sy = node_y.get(&a.0).copied().unwrap_or(0.0);
@@ -177,7 +180,6 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
 
     let mut source_offsets: HashMap<String, f64> = HashMap::new();
     let mut sink_offsets: HashMap<String, f64> = HashMap::new();
-    // (x1, y1_top, y1_bot, x2, y2_top, y2_bot, color, value)
     let mut drawn: Vec<(f64, f64, f64, f64, f64, f64, String, f64)> = Vec::new();
 
     for (from, to, value) in &sorted_flows {
@@ -216,16 +218,14 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
     // ── SVG ─────────────────────────────────────────────────
     let mut svg = svg_start(canvas_w, canvas_h);
 
-    // Flows
     for (x1, y1_top, y1_bot, x2, y2_top, y2_bot, color, value) in &drawn {
         let mx = (x1 + x2) / 2.0;
         let d = format!(
             "M {x1} {y1_top} C {mx} {y1_top} {mx} {y2_top} {x2} {y2_top} \
              L {x2} {y2_bot} C {mx} {y2_bot} {mx} {y1_bot} {x1} {y1_bot} Z"
         );
-        let fill = hex_to_rgba(color, 0.32);
         svg.push_str(&format!(
-            r##"<path d="{d}" fill="{fill}" stroke="{color}" stroke-width="0.6" stroke-opacity="0.55"/>"##
+            r##"<path d="{d}" fill="{color}" fill-opacity="0.32" stroke="{color}" stroke-width="0.6" stroke-opacity="0.55"/>"##
         ));
 
         let band_h = y1_bot - y1_top;
@@ -239,7 +239,6 @@ pub(crate) fn render_sankey(lines: &[&str]) -> String {
         }
     }
 
-    // Nodes + Labels
     for col in &columns {
         for n in col {
             let di = depth.get(n).copied().unwrap_or(0);
@@ -305,13 +304,3 @@ fn format_value(v: f64) -> String {
         format!("{:.1}", v)
     }
 }
-
-fn hex_to_rgba(hex: &str, alpha: f64) -> String {
-    let h = hex.trim_start_matches('#');
-    if h.len() != 6 { return format!("rgba(95,125,224,{:.2})", alpha); }
-    let r = u8::from_str_radix(&h[0..2], 16).unwrap_or(95);
-    let g = u8::from_str_radix(&h[2..4], 16).unwrap_or(125);
-    let b = u8::from_str_radix(&h[4..6], 16).unwrap_or(224);
-    format!("rgba({},{},{},{:.2})", r, g, b, alpha)
-}
-

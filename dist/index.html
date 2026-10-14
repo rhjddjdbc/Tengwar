@@ -43,6 +43,12 @@
       <button class="git-action-btn" id="git-remote-btn"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span> Remote</button>
       <button class="git-action-btn" id="git-token-btn"><span class="ico"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span> Token</button>
     </div>
+    <div class="git-row">
+      <button class="git-action-btn" id="git-diff-btn" style="flex:1">
+        <span class="ico"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 5 19 12"/><line x1="3" y1="21" x2="21" y2="21"/></svg></span>
+        Show Diff
+      </button>
+    </div>
   </div>
 
   <div id="sidebar-actions">
@@ -162,11 +168,6 @@
       <button id="zoomFitBtn" title="Fit to width">Fit</button>
     </div>
 
-    <button class="tool-btn" id="diffBtn" title="Show diff">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 5 19 12"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
-      Diff
-    </button>
-
     <div id="currentFile">– no file –</div>
   </div>
 
@@ -180,6 +181,17 @@
         <textarea id="editor" spellcheck="false"></textarea>
       </div>
       <div id="block-editor"></div>
+      <div id="no-file-banner" hidden>
+        <div class="nfb-content">
+          <svg viewBox="0 0 24 24" class="nfb-icon"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+          <h2>No file open</h2>
+          <p>Create a new file or open a folder to get started.</p>
+          <div class="nfb-actions">
+            <button class="nfb-btn primary" id="nfb-new">New File</button>
+            <button class="nfb-btn" id="nfb-open">Open Folder</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="tile-handle col-resizer" id="panesResizer"></div>
     <div id="preview-pane"></div>

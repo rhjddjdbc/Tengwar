@@ -178,3 +178,74 @@ body.block-mode #panes {
 }
 body.block-mode #preview-pane { display: none !important; }
 body.block-mode #panesResizer { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   NO FILE OPEN — overlay shown when no tab is active
+   ═══════════════════════════════════════════════════════════════ */
+#no-file-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-0);
+  z-index: 10;
+  padding: 24px;
+}
+#no-file-banner[hidden] { display: none; }
+
+#no-file-banner .nfb-content {
+  text-align: center;
+  max-width: 340px;
+}
+#no-file-banner .nfb-icon {
+  width: 48px;
+  height: 48px;
+  stroke: var(--fg-2);
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+#no-file-banner h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg-0);
+  margin-bottom: 6px;
+}
+#no-file-banner p {
+  font-size: 13px;
+  color: var(--fg-2);
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+#no-file-banner .nfb-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+#no-file-banner .nfb-btn {
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  color: var(--fg-0);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+#no-file-banner .nfb-btn:hover {
+  background: var(--bg-3);
+  border-color: var(--border-1);
+}
+#no-file-banner .nfb-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+#no-file-banner .nfb-btn.primary:hover {
+  filter: brightness(1.1);
+}

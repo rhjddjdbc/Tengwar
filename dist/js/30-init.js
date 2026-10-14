@@ -71,6 +71,9 @@ applyCustomTheme();
   // first Ctrl+Z has something to go back to.
   if (typeof resetUndoHistory === 'function') resetUndoHistory(editorTA.value);
 
+  // Ensure the empty-state overlay reflects whether a tab is active.
+  if (typeof updateNoFileBanner === 'function') updateNoFileBanner();
+
   editorTA.focus();
   updateStatusbar();
   checkRecoveryOnStart();

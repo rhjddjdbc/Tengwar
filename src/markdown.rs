@@ -50,6 +50,12 @@ pub fn render_markdown(input: String) -> String {
             Event::SoftBreak if in_mermaid => { mermaid_buf.push('\n'); }
             Event::HardBreak if in_mermaid => { mermaid_buf.push('\n'); }
 
+            // Single newlines in the source render as a real line break
+            // instead of a space. Matches how Notion, Obsidian (Live
+            // Preview) and most note editors behave, and is what a user
+            // expects when they press Enter inside a paragraph.
+            Event::SoftBreak => events_out.push(Event::HardBreak),
+
             Event::InlineMath(math) => {
                 let html = match render_math(&math, false) {
                     Some(mml) => format!(r#"<span class="math-inline">{mml}</span>"#),

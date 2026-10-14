@@ -186,7 +186,15 @@ async function openFileEntry(entry) {
 }
 
 async function saveFile() {
-  if (!activeTabId) { showToast('No file open', 'info'); return; }
+  // No active tab → create an untitled buffer and route straight to
+  // Save As. Lets the user hit Ctrl+S right after startup, or after
+  // closing every tab, without having to click "New File" first.
+  if (!activeTabId) {
+    const id = createTab({ name: 'untitled.md', content: editorTA.value || '' });
+    renderTabsBar();
+    await switchToTab(id);
+    return saveFileAs(null);
+  }
   const tab = tabs.get(activeTabId); if (!tab) return;
   await vimQueue;
   const snap = vimEnabled ? await invoke('vim_snapshot') : { text: editorTA.value };

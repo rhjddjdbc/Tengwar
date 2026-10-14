@@ -32,6 +32,34 @@ body.sidebar-right #sidebar { order: 3; }
 .search-header .icon svg { width: 15px; height: 15px; }
 
 /* ═══════════════════════════════════════════════════════════════
+   SCROLLBARS — theme-aware
+   The universal selector is intentional: scrollbars only show up on
+   elements that actually overflow, so styling every element is safe
+   and means every scrollable region picks up the theme colours.
+   ═══════════════════════════════════════════════════════════════ */
+* {
+  scrollbar-color: var(--border-2) transparent;
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 5px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--border-1);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    PRINT
    ═══════════════════════════════════════════════════════════════ */
 @media print {

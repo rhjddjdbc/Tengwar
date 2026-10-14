@@ -67,6 +67,7 @@ function applyScrollSync(enabled) {
 }
 
 function applyBlockMode(enabled) {
+  const wasEnabled = blockModeEnabled;
   blockModeEnabled = enabled;
   localStorage.setItem('tengwar-block-mode', enabled ? 'true' : 'false');
   const item = document.getElementById('blockModeItem');
@@ -84,7 +85,11 @@ function applyBlockMode(enabled) {
     if (modeInd) modeInd.style.display = 'none';
     enterBlockMode();
   } else {
-    exitBlockMode();
+    // Only sync back from the block editor if it was actually active.
+    // On first startup `wasEnabled` is false and `currentBlocks` is
+    // empty — running exitBlockMode would overwrite the freshly loaded
+    // document with the empty string.
+    if (wasEnabled) exitBlockMode();
     if (wrap) wrap.style.removeProperty('display');
     if (blk) blk.style.display = 'none';
     if (modeInd) modeInd.style.removeProperty('display');

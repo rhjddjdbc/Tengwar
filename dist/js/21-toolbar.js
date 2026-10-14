@@ -89,9 +89,8 @@ function handleDropdownAction(action) {
    BUTTONS
 
    "Open Folder" now lives inside the vault dropdown (33-vaults.js),
-   not as a standalone toolbar button — so there's no handler for it
-   here. The guard-style id lookups below make this file robust if
-   any other button ever moves out of index.html.
+   not as a standalone toolbar button. The `on` helper guards each
+   lookup so a missing button doesn't abort the rest of this file.
    ═══════════════════════════════════════════════════════════════ */
 function on(id, event, handler) {
   const el = document.getElementById(id);
@@ -101,14 +100,20 @@ function on(id, event, handler) {
 on('saveBtn', 'click', saveFile);
 
 on('newFileBtn', 'click', () => {
-  if (!currentRepoPath) { showToast('Open a folder first', 'error'); return; }
+  if (!currentRepoPath) {
+    newFile();
+    return;
+  }
   newFileInFolder({
     abs: activeFolderAbs || currentRepoPath,
     path: activeFolderRel || '',
   });
 });
 on('newFolderBtn', 'click', () => {
-  if (!currentRepoPath) { showToast('Open a folder first', 'error'); return; }
+  if (!currentRepoPath) {
+    showToast('Open a folder first to create folders', 'info');
+    return;
+  }
   newFolderInFolder({
     abs: activeFolderAbs || currentRepoPath,
     path: activeFolderRel || '',
@@ -131,3 +136,7 @@ on('git-fetch-btn', 'click', gitFetch);
 on('git-remote-btn', 'click', setRemote);
 on('git-branch-display', 'click', switchBranch);
 on('git-token-btn', 'click', setGitToken);
+
+// Buttons inside the "no file open" overlay.
+on('nfb-new', 'click', () => newFile());
+on('nfb-open', 'click', () => openFolder());
