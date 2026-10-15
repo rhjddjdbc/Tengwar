@@ -11,6 +11,7 @@ const KEY_ACTIONS = [
   { id: 'open-folder',       cat: 'File',   label: 'Open Folder…',           def: 'ctrl+o',          scope: 'global', action: () => openFolder() },
   { id: 'export-html',       cat: 'File',   label: 'Export as HTML',         def: '',                scope: 'global', action: () => exportHtml() },
   { id: 'print-pdf',         cat: 'File',   label: 'Print / PDF',            def: 'ctrl+alt+p',      scope: 'global', action: () => exportPdf() },
+  { id: 'today-note',        cat: 'File',   label: "Today's Note",           def: 'ctrl+shift+t',    scope: 'global', action: () => openDailyNote() },
 
   { id: 'find-files',        cat: 'Edit',   label: 'Find Files',             def: 'ctrl+p',          scope: 'editor', action: () => showSearch('files') },
   { id: 'find-lines',        cat: 'Edit',   label: 'Find Lines',             def: 'ctrl+f',          scope: 'editor', action: () => showSearch('lines') },

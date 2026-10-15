@@ -21,6 +21,82 @@ let currentBlocks = [];
 let editingBlockIdx = -1;
 let blockEditStartRaw = '';
 
+/* ═══════════════════════════════════════════════════════════════
+   DOCUMENT-LEVEL SHORTCUT FALLBACK
+
+   The block-edit textarea's own keydown listener runs in the bubble
+   phase. The shortcut dispatcher in 10-keybindings.js runs in the
+   capture phase and, for editor-scoped actions like Ctrl+S, returns
+   early when focus is not on editorTA — which is the normal case in
+   block mode. In practice this works, but listener-ordering quirks
+   across Chromium builds occasionally swallow the event before it
+   reaches the textarea.
+
+   This capture-phase handler runs AFTER the dispatcher (registered
+   later, same phase, same node → insertion order wins). It handles
+   Ctrl+S / Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y directly and calls
+   stopPropagation so the textarea's own listener doesn't double-fire.
+   ═══════════════════════════════════════════════════════════════ */
+
+document.addEventListener('keydown', (e) => {
+  if (editingBlockIdx < 0) return;
+  const ae = document.activeElement;
+  if (!ae || !ae.classList || !ae.classList.contains('block-edit')) return;
+
+  const isMod = e.ctrlKey || e.metaKey;
+  if (!isMod || e.altKey) return;
+
+  // Use e.code for physical key detection — more reliable than e.key
+  // when modifiers are held. Fall back to e.key for keyboard layouts
+  // that don't report code (rare).
+  const code = e.code || '';
+  const key = (e.key || '').toLowerCase();
+  const isS = code === 'KeyS' || key === 's';
+  const isZ = code === 'KeyZ' || key === 'z';
+  const isY = code === 'KeyY' || key === 'y';
+
+  // ── Ctrl+S — commit current block, then save ─────────────────
+  if (isS && !e.shiftKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    const idx = editingBlockIdx;
+    const ta = ae;
+    currentBlocks[idx].raw = ta.value;
+    commitBlockEdit().then(() => saveFile());
+    return;
+  }
+
+  // ── Ctrl+Z — undo within block, then step back ───────────────
+  if (isZ && !e.shiftKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    const ta = ae;
+    if (ta.value !== blockEditStartRaw) {
+      // Still inside the current edit session — reset to the
+      // snapshot taken when the block was opened.
+      ta.value = blockEditStartRaw;
+      autoSizeTextarea(ta);
+    } else {
+      // Already at the start of this session — commit and step
+      // back to the previous undo snapshot in the global stack.
+      commitBlockEdit().then(() => {
+        if (typeof performUndo === 'function') performUndo();
+      });
+    }
+    return;
+  }
+
+  // ── Ctrl+Shift+Z or Ctrl+Y — redo ────────────────────────────
+  if ((isZ && e.shiftKey) || isY) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (ae.value === blockEditStartRaw && typeof performRedo === 'function') {
+      performRedo();
+    }
+    return;
+  }
+}, true);
+
 /* ── split / join ────────────────────────────────────────────── */
 
 function isClosingFence(trimmed, fenceChar) {
@@ -132,9 +208,6 @@ async function enterBlockMode() {
 
 function exitBlockMode() {
   // Nothing to sync when the block editor was never populated.
-  // Protects against `applyBlockMode(false)` being called before the
-  // editor has any content — which would otherwise overwrite the
-  // loaded document with an empty string.
   if (currentBlocks.length === 0 && editingBlockIdx < 0) return;
 
   if (editingBlockIdx >= 0) {
@@ -335,33 +408,9 @@ async function onBlockTextareaKeydown(e) {
   const idx = editingBlockIdx;
   if (idx < 0) return;
 
-  // Ctrl+Z inside a block: first undo within the current edit, then
-  // step back to the previous commit.
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-    e.preventDefault();
-    if (ta.value !== blockEditStartRaw) {
-      ta.value = blockEditStartRaw;
-      autoSizeTextarea(ta);
-    } else {
-      await commitBlockEdit();
-      if (typeof performUndo === 'function') performUndo();
-    }
-    return;
-  }
-
-  // Ctrl+Y / Ctrl+Shift+Z inside a block: fall through to the global
-  // handler — it will refuse because focus is on a block textarea, so
-  // do it manually here.
-  if ((e.ctrlKey || e.metaKey) &&
-      (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
-    e.preventDefault();
-    if (ta.value !== blockEditStartRaw) {
-      // Redo within a session isn't tracked — nothing to do.
-    } else if (typeof performRedo === 'function') {
-      performRedo();
-    }
-    return;
-  }
+  // Ctrl+S / Ctrl+Z / Ctrl+Y are handled by the document-level
+  // capture-phase fallback at the top of this file. This handler
+  // covers everything else.
 
   if (e.key === 'Escape') {
     e.preventDefault();
@@ -417,14 +466,6 @@ async function onBlockTextareaKeydown(e) {
     currentBlocks[idx].raw = ta.value;
     await commitBlockEdit();
     onBlockClick(idx + 1);
-    return;
-  }
-
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-    e.preventDefault();
-    currentBlocks[idx].raw = ta.value;
-    await commitBlockEdit();
-    saveFile();
     return;
   }
 }

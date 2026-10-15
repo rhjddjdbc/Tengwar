@@ -91,8 +91,6 @@
 .tool-btn.primary:hover { background: var(--bg-3); color: var(--fg-0); border-color: var(--border-2); transform: none; filter: none; }
 .tool-btn.primary:active { background: var(--bg-1); }
 
-/* Disabled state — used by the undo / redo buttons when the stacks
-   are empty. */
 .tool-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
@@ -357,4 +355,463 @@ body.tile-dragging.vertical-drag, body.tile-dragging.vertical-drag * { cursor: r
 #vault-menu .vault-item-remove:hover {
   background: var(--bg-3);
   color: var(--error);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR SECTIONS — generic collapsible panels
+   Any .sidebar-section with a [data-section-toggle] header can be
+   collapsed. The rule below hides everything except the header.
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+  border-bottom: 1px solid var(--border-1);
+  background: var(--bg-0);
+}
+.sidebar-section.collapsed > :not(.section-header) {
+  display: none;
+}
+.sidebar-section.collapsed {
+  flex: 0 0 auto;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.section-header:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+.section-header .section-title { flex: 1; }
+.section-header .section-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-3);
+  color: var(--fg-2);
+  border-radius: 8px;
+  font-weight: 700;
+  font-family: monospace;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.section-header .section-chev {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.sidebar-section.collapsed .section-chev {
+  transform: rotate(-90deg);
+}
+
+/* Git section — no outer border, the section wrapper already has one */
+#git-section #git-panel {
+  border-bottom: none;
+}
+
+/* Files section — must fill remaining vertical space when open */
+#files-section {
+  flex: 1;
+  min-height: 0;
+}
+#files-section #file-tree {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PANEL HEADERS — shared by Backlinks and Outline
+
+   Both panels use the same .bl-header / .bl-title / .bl-count /
+   .bl-chev / .bl-list markup. Styling them via a shared selector
+   keeps the two panels in sync — no per-panel duplication.
+   ═══════════════════════════════════════════════════════════════ */
+#backlinks-panel,
+#outline-panel {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-1);
+  background: var(--bg-0);
+  display: flex;
+  flex-direction: column;
+  max-height: 40vh;
+}
+#backlinks-panel.collapsed .bl-list,
+#outline-panel.collapsed .bl-list { display: none; }
+#backlinks-panel.collapsed .bl-chev,
+#outline-panel.collapsed .bl-chev { transform: rotate(-90deg); }
+
+#backlinks-panel .bl-header,
+#outline-panel .bl-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+#backlinks-panel .bl-header:hover,
+#outline-panel .bl-header:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+#backlinks-panel .bl-title,
+#outline-panel .bl-title { flex: 1; }
+#backlinks-panel .bl-count,
+#outline-panel .bl-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-3);
+  color: var(--fg-2);
+  border-radius: 8px;
+  font-weight: 700;
+  font-family: monospace;
+}
+#backlinks-panel .bl-chev,
+#outline-panel .bl-chev {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+#backlinks-panel .bl-list,
+#outline-panel .bl-list {
+  overflow-y: auto;
+  padding: 0 6px 8px;
+  min-height: 40px;
+}
+
+/* ── Backlinks-specific content ─────────────────────────────── */
+#backlinks-panel .backlinks-empty,
+#backlinks-panel .backlinks-loading {
+  font-size: 11.5px;
+  color: var(--fg-2);
+  padding: 10px 8px;
+  font-style: italic;
+  text-align: center;
+}
+.backlink-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  padding: 6px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--fg-1);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+.backlink-item:hover {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+.backlink-item .bl-name {
+  display: block;
+  font-weight: 600;
+  color: var(--fg-0);
+  margin-bottom: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backlink-item .bl-line {
+  display: inline-block;
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--fg-2);
+  margin-right: 6px;
+}
+.backlink-item .bl-snippet {
+  display: block;
+  font-family: monospace;
+  font-size: 10.5px;
+  color: var(--fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+/* ── Outline-specific content ───────────────────────────────── */
+#outline-panel .outline-empty,
+#outline-panel .outline-loading {
+  font-size: 11.5px;
+  color: var(--fg-2);
+  padding: 10px 8px;
+  font-style: italic;
+  text-align: center;
+}
+.outline-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--fg-1);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-bottom: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outline-item:hover {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+.outline-item .ol-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.outline-level-1 { font-weight: 600; color: var(--fg-0); }
+.outline-level-2 { font-weight: 500; }
+.outline-level-3,
+.outline-level-4,
+.outline-level-5,
+.outline-level-6 { font-size: 11.5px; }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   WIKILINK AUTOCOMPLETE POPUP
+   ═══════════════════════════════════════════════════════════════ */
+.wikilink-popup {
+  position: fixed;
+  z-index: 10500;
+  width: 280px;
+  max-height: 260px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  display: none;
+  overflow: hidden;
+}
+.wikilink-popup.show {
+  display: block;
+  animation: dd-fade 0.1s ease;
+}
+.wikilink-popup .wl-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.wikilink-popup .wl-empty {
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--fg-2);
+  font-style: italic;
+  text-align: center;
+}
+.wikilink-popup .wl-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg-1);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wikilink-popup .wl-item.selected {
+  background: var(--accent-glow);
+  color: var(--fg-0);
+}
+.wikilink-popup .wl-item:hover {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+.wikilink-popup .wl-name {
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+  font-weight: 500;
+}
+.wikilink-popup .wl-path {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  text-align: right;
+}
+.wikilink-popup .wl-item.selected .wl-path {
+  color: var(--accent-hi);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FRONTMATTER PANEL
+   ═══════════════════════════════════════════════════════════════ */
+#frontmatter-panel {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-1);
+  background: var(--bg-0);
+  display: flex;
+  flex-direction: column;
+  max-height: 40vh;
+}
+#frontmatter-panel.collapsed .bl-list { display: none; }
+#frontmatter-panel.collapsed .bl-chev { transform: rotate(-90deg); }
+
+#frontmatter-panel .bl-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+#frontmatter-panel .bl-header:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+#frontmatter-panel .bl-title { flex: 1; }
+#frontmatter-panel .bl-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-3);
+  color: var(--fg-2);
+  border-radius: 8px;
+  font-weight: 700;
+  font-family: monospace;
+}
+#frontmatter-panel .bl-chev {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+#frontmatter-panel .bl-list {
+  overflow-y: auto;
+  padding: 4px 6px 8px;
+  min-height: 40px;
+}
+
+#frontmatter-panel .fm-empty {
+  font-size: 11.5px;
+  color: var(--fg-2);
+  padding: 10px 8px;
+  font-style: italic;
+  text-align: center;
+}
+
+.fm-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+  align-items: center;
+}
+.fm-key,
+.fm-value {
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-s);
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  outline: none;
+  min-width: 0;
+}
+.fm-key { flex: 0 0 90px; }
+.fm-value { flex: 1; }
+.fm-key:focus,
+.fm-value:focus {
+  border-color: var(--accent);
+  background: var(--bg-0);
+}
+.fm-del {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  color: var(--fg-2);
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fm-del:hover {
+  background: var(--bg-3);
+  color: var(--error);
+}
+
+.fm-add,
+.fm-add-block {
+  width: 100%;
+  background: transparent;
+  color: var(--fg-2);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-s);
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.fm-add:hover,
+.fm-add-block:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border-color: var(--accent);
 }

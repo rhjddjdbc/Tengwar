@@ -97,17 +97,77 @@ function deleteFolderDialog(target) {
     } catch (e) { showToast(String(e), 'error'); }
   })();
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW FILE — kind picker
+
+   Three modes:
+
+     - Normal note    → `<target>/<name>.md`
+     - Template       → `<vault>/templates/<name>.template`
+     - Journal entry  → today's date-named note in the global
+                        journal folder (same as Ctrl+Shift+T)
+
+   The picker only makes sense when a vault is open. When there's
+   no vault, `21-toolbar.js` routes to `newFile()` which creates an
+   untitled in-memory tab — no kind choice needed.
+   ═══════════════════════════════════════════════════════════════ */
+
 function newFileInFolder(target) {
-  showInputModal('New File', 'File name:', 'untitled.md', async (name) => {
-    if (!name) return;
-    const abs = target.abs + '/' + name;
-    try {
-      await invoke('write_text_file', { path: abs, content: '' });
-      await loadFolder(currentRepoPath);
-      showToast('Created ' + name);
-    } catch (e) { showToast(String(e), 'error'); }
-  });
+  showChoiceModal(
+    'New file — kind',
+    ['Normal note', 'Template', 'Journal entry'],
+    async (kind) => {
+      if (kind === 'Normal note') {
+        showInputModal('New File', 'File name:', 'untitled.md', async (name) => {
+          if (!name) return;
+          const abs = target.abs + '/' + name;
+          try {
+            await invoke('write_text_file', { path: abs, content: '' });
+            await loadFolder(currentRepoPath);
+            showToast('Created ' + name);
+          } catch (e) { showToast(String(e), 'error'); }
+        });
+        return;
+      }
+
+      if (kind === 'Template') {
+        if (!currentRepoPath) { showToast('Open a folder first', 'error'); return; }
+        // Make sure templates/ exists — auto-created on vault open
+        // anyway, but a context-menu click can land here before the
+        // watcher fires.
+        if (typeof ensureVaultTemplatesDir === 'function') {
+          try { await ensureVaultTemplatesDir(currentRepoPath); } catch (_) {}
+        }
+        showInputModal('New Template', 'Template name:', 'my-template', async (name) => {
+          if (!name) return;
+          const clean = String(name).replace(/\.template$/i, '').trim();
+          if (!clean) return;
+          const rel = 'templates/' + clean + '.template';
+          const abs = currentRepoPath + '/' + rel;
+          try {
+            await invoke('write_text_file', { path: abs, content: '' });
+            await loadFolder(currentRepoPath);
+            if (typeof refreshTemplatesCache === 'function') {
+              await refreshTemplatesCache();
+            }
+            showToast('Created template: ' + clean);
+          } catch (e) { showToast(String(e), 'error'); }
+        });
+        return;
+      }
+
+      if (kind === 'Journal entry') {
+        if (typeof openDailyNote === 'function') {
+          await openDailyNote();
+        } else {
+          showToast('Journal feature not loaded', 'error');
+        }
+      }
+    }
+  );
 }
+
 function newFolderInFolder(target) {
   showInputModal('New Folder', 'Folder name:', 'new-folder', async (name) => {
     if (!name) return;

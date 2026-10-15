@@ -1,9 +1,61 @@
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 
+/// If `input` starts with a YAML frontmatter block, return everything
+/// after the closing `---`. Otherwise return input unchanged.
+///
+/// A valid block looks like:
+///
+/// ```text
+/// ---
+/// key: value
+/// ---
+/// ```
+///
+/// The closing delimiter must be `---` on its own line. `\r` is
+/// tolerated for CRLF files. If no closing delimiter is found we
+/// return the input unchanged — a lone `---` at the top is a valid
+/// horizontal rule and must not be swallowed.
+fn strip_frontmatter(input: &str) -> &str {
+    let bytes = input.as_bytes();
+
+    let after_open = if bytes.starts_with(b"---\r\n") {
+        5
+    } else if bytes.starts_with(b"---\n") {
+        4
+    } else {
+        return input;
+    };
+
+    let rest = &input[after_open..];
+    let rest_bytes = rest.as_bytes();
+    let mut line_start = 0;
+
+    for i in 0..rest_bytes.len() {
+        if rest_bytes[i] != b'\n' {
+            continue;
+        }
+        let line = rest[line_start..i].trim_end_matches('\r');
+        if line == "---" {
+            return &rest[i + 1..];
+        }
+        line_start = i + 1;
+    }
+    // Last line without a trailing newline.
+    let line = rest[line_start..].trim_end_matches('\r');
+    if line == "---" {
+        return "";
+    }
+
+    input
+}
+
 #[tauri::command]
 pub fn render_markdown(input: String) -> String {
-    // ── Preprocess: convert [[Wikilinks]] to standard markdown links ──
-    let processed = preprocess_wikilinks(&input);
+    // YAML frontmatter at the very top is metadata, not content.
+    // Strip it so it doesn't render as an <hr> plus body text in the
+    // preview and exported HTML.
+    let body = strip_frontmatter(&input);
+    let processed = preprocess_wikilinks(body);
 
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
@@ -13,10 +65,6 @@ pub fn render_markdown(input: String) -> String {
     opts.insert(Options::ENABLE_MATH);
 
     let parser = Parser::new_ext(&processed, opts);
-
-    // Collect raw events up front so we can pre-scan for task lists.
-    // We need this because pulldown-cmark emits Start(List) before the
-    // TaskListMarker that identifies the list as a task list.
     let raw: Vec<Event> = parser.collect();
     let task_list_flags = find_task_lists(&raw);
 
@@ -50,10 +98,8 @@ pub fn render_markdown(input: String) -> String {
             Event::SoftBreak if in_mermaid => { mermaid_buf.push('\n'); }
             Event::HardBreak if in_mermaid => { mermaid_buf.push('\n'); }
 
-            // Single newlines in the source render as a real line break
-            // instead of a space. Matches how Notion, Obsidian (Live
-            // Preview) and most note editors behave, and is what a user
-            // expects when they press Enter inside a paragraph.
+            // Single newlines render as a real line break instead of a
+            // space — matches Notion / Obsidian behavior.
             Event::SoftBreak => events_out.push(Event::HardBreak),
 
             Event::InlineMath(math) => {
@@ -84,7 +130,6 @@ pub fn render_markdown(input: String) -> String {
                 ));
             }
 
-            // Task lists: swap pulldown-cmark's bare <ul> for our styled one.
             Event::Start(Tag::List(kind)) => {
                 let is_task = task_list_flags.get(list_idx).copied().unwrap_or(false);
                 list_idx += 1;
@@ -109,12 +154,9 @@ pub fn render_markdown(input: String) -> String {
         }
     }
 
-    let mut out = String::with_capacity(input.len() * 2);
+    let mut out = String::with_capacity(body.len() * 2);
     html::push_html(&mut out, events_out.into_iter());
 
-    // Add the task-list-item class to the <li> tags. This has to be done
-    // post-hoc because pulldown-cmark doesn't give us a hook at Start(Item)
-    // time that knows whether the item is a task item.
     out = out.replace(
         r#"<li><input type="checkbox""#,
         r#"<li class="task-list-item"><input type="checkbox""#,
@@ -127,8 +169,6 @@ pub fn render_markdown(input: String) -> String {
     out
 }
 
-/// Returns a flag per Start(List) in `events`, indicating whether the list
-/// contains at least one TaskListMarker.
 fn find_task_lists(events: &[Event]) -> Vec<bool> {
     let mut flags: Vec<bool> = Vec::new();
     let mut stack: Vec<usize> = Vec::new();
@@ -138,13 +178,9 @@ fn find_task_lists(events: &[Event]) -> Vec<bool> {
                 stack.push(flags.len());
                 flags.push(false);
             }
-            Event::End(TagEnd::List(_)) => {
-                stack.pop();
-            }
+            Event::End(TagEnd::List(_)) => { stack.pop(); }
             Event::TaskListMarker(_) => {
-                if let Some(&idx) = stack.last() {
-                    flags[idx] = true;
-                }
+                if let Some(&idx) = stack.last() { flags[idx] = true; }
             }
             _ => {}
         }
@@ -152,15 +188,8 @@ fn find_task_lists(events: &[Event]) -> Vec<bool> {
     flags
 }
 
-/// Replaces [[Target]] with [Target](wiki:Target) and
-/// [[Target|Display]] with [Display](wiki:Target).
-///
-/// Skips fenced code blocks (``` or ~~~) and inline code (` or ``).
-///
-/// Targets containing whitespace or parentheses are wrapped in angle
-/// brackets — CommonMark rejects those characters inside a bare link
-/// destination, and without this workaround `[[Big O Notation]]` renders
-/// as literal text instead of a link.
+/// Replaces `[[Target]]` with `[Target](wiki:Target)` and
+/// `[[Target|Display]]` with `[Display](wiki:Target)`.
 pub fn preprocess_wikilinks(input: &str) -> String {
     let mut out = String::with_capacity(input.len() + 32);
     let mut in_fence = false;
@@ -169,7 +198,6 @@ pub fn preprocess_wikilinks(input: &str) -> String {
     for line in input.split_inclusive('\n') {
         let trimmed = line.trim_start();
 
-        // Detect fenced-code-block delimiters (``` or ~~~).
         let starts_with_fence =
             trimmed.starts_with("```") || trimmed.starts_with("~~~");
         if starts_with_fence {
@@ -195,7 +223,6 @@ pub fn preprocess_wikilinks(input: &str) -> String {
     out
 }
 
-/// Processes wikilinks on a single non-fenced line, skipping inline code.
 fn process_line_wikilinks(line: &str) -> String {
     let chars: Vec<char> = line.chars().collect();
     let mut out = String::with_capacity(line.len());
@@ -203,18 +230,11 @@ fn process_line_wikilinks(line: &str) -> String {
     let mut in_inline_code = false;
 
     while i < chars.len() {
-        // Inline-code toggling on runs of 1 or 2 backticks.
         if chars[i] == '`' {
             let mut n = 0;
-            while i + n < chars.len() && chars[i + n] == '`' {
-                n += 1;
-            }
-            for _ in 0..n {
-                out.push('`');
-            }
-            if n == 1 || n == 2 {
-                in_inline_code = !in_inline_code;
-            }
+            while i + n < chars.len() && chars[i + n] == '`' { n += 1; }
+            for _ in 0..n { out.push('`'); }
+            if n == 1 || n == 2 { in_inline_code = !in_inline_code; }
             i += n;
             continue;
         }
@@ -224,7 +244,6 @@ fn process_line_wikilinks(line: &str) -> String {
             && chars[i] == '['
             && chars[i + 1] == '['
         {
-            // Try to find the closing ]]
             let mut j = i + 2;
             let mut buf = String::new();
             let mut closed = false;
@@ -233,9 +252,7 @@ fn process_line_wikilinks(line: &str) -> String {
                     closed = true;
                     break;
                 }
-                if chars[j] == '\n' {
-                    break;
-                }
+                if chars[j] == '\n' { break; }
                 buf.push(chars[j]);
                 j += 1;
             }
@@ -248,15 +265,9 @@ fn process_line_wikilinks(line: &str) -> String {
                     out.push('[');
                     out.push_str(&display);
                     out.push_str("](");
-
-                    // CommonMark rejects spaces and parentheses in a bare
-                    // link destination. Wrap the URL in <> when the target
-                    // contains either, so `[[Big O Notation]]` renders as
-                    // a link instead of literal text.
                     let needs_wrap = target
                         .chars()
                         .any(|c| c.is_whitespace() || c == '(' || c == ')');
-
                     if needs_wrap {
                         out.push_str("<wiki:");
                         out.push_str(&target);

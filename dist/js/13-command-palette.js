@@ -16,6 +16,8 @@ const COMMANDS = [
   { cat: 'File', name: 'Save As…', action: () => saveFileAs(null) },
   { cat: 'File', name: 'Export as HTML', action: () => exportHtml() },
   { cat: 'File', name: 'Print / PDF', action: () => exportPdf() },
+  { cat: 'File', name: "Today's Note", action: () => openDailyNote() },
+  { cat: 'File', name: 'Templates & journal…', action: () => openTemplatesSettings() },
   { cat: 'Edit', name: 'Find in File', action: () => showSearch('lines') },
   { cat: 'Edit', name: 'Find & Replace', action: () => toggleFindPopup() },
   { cat: 'Edit', name: 'Find Files', action: () => showSearch('files') },
@@ -79,6 +81,7 @@ function commandKeyHint(actionLabel) {
     'Toggle Split Direction': 'toggle-split', 'Swap Editor/Preview': 'swap-panes',
     'Focus Editor': 'focus-editor', 'Focus Preview': 'focus-preview',
     'Show Diff': 'git-diff',
+    "Today's Note": 'today-note',
   };
   const id = map[actionLabel];
   if (!id || !keybindings[id]) return '';

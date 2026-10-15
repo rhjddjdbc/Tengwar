@@ -10,10 +10,6 @@ const MAX_UNDO: usize = 300;
 #[serde(rename_all = "lowercase")]
 pub enum Mode { Normal, Insert, Visual }
 
-/// Key events from the frontend. `shift` and `alt` are sent by
-/// `12-editor-keys.js` but not yet used by the state machine — the
-/// fields are kept so the wire format is stable if we ever start
-/// distinguishing `Ctrl+Shift+X` from `Ctrl+X`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct KeyEvent {
     pub key: String,
@@ -39,10 +35,6 @@ pub struct Snapshot {
 }
 
 /// Last repeatable change, replayed by `.`.
-/// `YankLine` carries no count — Vim's `yy` with a count yanks N lines,
-/// but our yank buffer only ever holds one line at a time, so the count
-/// was stored and then never read. If we ever support multi-line yank,
-/// this becomes `YankLine(usize)` again.
 #[derive(Debug, Clone)]
 enum LastChange {
     DeleteChar(usize),
@@ -105,6 +97,28 @@ impl VimState {
         self.push_undo();
         self.text = text;
         self.cursor = self.cursor.min(self.text.len());
+        self.visual_start = None;
+    }
+
+    /// Replace a byte range in the buffer. Used by frontend features
+    /// that need to modify the text while Vim owns the state
+    /// (autocomplete, formatting tools, etc.). Preserves the current
+    /// mode — unlike `set_text`, this doesn't reset anything.
+    ///
+    /// `start` and `end` are byte offsets and must be valid char
+    /// boundaries. Silently ignores invalid ranges so a bad hint from
+    /// the JS side can't crash the state machine.
+    pub fn replace_range(&mut self, start: usize, end: usize, text: &str) {
+        if start > end
+            || end > self.text.len()
+            || !self.text.is_char_boundary(start)
+            || !self.text.is_char_boundary(end)
+        {
+            return;
+        }
+        self.push_undo();
+        self.text.replace_range(start..end, text);
+        self.cursor = start + text.len();
         self.visual_start = None;
     }
 
@@ -357,6 +371,7 @@ impl VimState {
         for _ in 0..n { f(self); }
     }
 
+    /// Returns the byte range (start, end_exclusive) of the visual selection.
     fn visual_range(&self) -> Option<(usize, usize)> {
         let vs = self.visual_start?;
         let a = vs.min(self.cursor);
@@ -385,6 +400,7 @@ impl VimState {
         }
 
         if ev.key == "Escape" {
+            // Only step the cursor back when leaving insert mode.
             let was_insert = self.mode == Mode::Insert;
             self.mode = Mode::Normal;
             self.pending.clear();
@@ -443,6 +459,7 @@ impl VimState {
                 "$" | "End"  => { self.cursor = self.line_end_pos(self.cursor);   return; }
                 "G" => { self.cursor = self.text.len(); return; }
                 "y" => {
+                    // Capture `a` BEFORE clearing visual_start.
                     if let Some((a, b)) = self.visual_range() {
                         self.yank_buffer = self.text[a..b].to_string();
                         self.cursor = a;
@@ -613,6 +630,22 @@ pub fn vim_handle_key(state: State<AppState>, event: KeyEvent) -> Result<Snapsho
 pub fn vim_set_text(state: State<AppState>, text: String) -> Result<Snapshot, String> {
     let mut vim = lock_vim(&state)?;
     vim.set_text(text);
+    Ok(vim.snapshot())
+}
+
+/// Replace a byte range in the Vim buffer. Used by the frontend when
+/// a feature needs to modify the text without going through the key
+/// state machine (wikilink autocomplete, formatting tools, etc.).
+/// Preserves the current mode.
+#[tauri::command]
+pub fn vim_replace_range(
+    state: State<AppState>,
+    start: usize,
+    end: usize,
+    text: String,
+) -> Result<Snapshot, String> {
+    let mut vim = lock_vim(&state)?;
+    vim.replace_range(start, end, &text);
     Ok(vim.snapshot())
 }
 

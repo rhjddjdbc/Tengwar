@@ -74,6 +74,9 @@ applyCustomTheme();
   // Ensure the empty-state overlay reflects whether a tab is active.
   if (typeof updateNoFileBanner === 'function') updateNoFileBanner();
 
+  // Initial backlinks load for the first tab.
+  if (typeof reloadBacklinks === 'function') reloadBacklinks();
+
   editorTA.focus();
   updateStatusbar();
   checkRecoveryOnStart();

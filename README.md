@@ -64,6 +64,7 @@ Hover any diagram for **SVG / PNG** download buttons. Diagram colors follow the 
 Force-directed graph of every `.md` file in the open folder, with edges for each wikilink. Drag to reposition, scroll to zoom, double-click to open.
 
 ---
+
 ## Installation
 
 ### Arch Linux
@@ -76,32 +77,6 @@ makepkg -si
 ```
 
 `makepkg` clones the tagged release from GitHub, builds it, and installs it through pacman. `pacman -Q tengwar` tracks the install and `pacman -R tengwar` removes it cleanly.
-
-### Windows
-
-Requirements:
-- [Rust toolchain](https://rustup.rs/) — install with default settings (target `x86_64-pc-windows-msvc`)
-- [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — include the **Desktop development with C++** workload
-- [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) — preinstalled on Windows 11 and recent Windows 10, otherwise install the Evergreen Bootstrapper
-- A C toolchain in `PATH` (comes with the MSVC build tools)
-
-Clone and build:
-
-```powershell
-git clone https://github.com/rhjddjdbc/tengwar.git
-cd tengwar
-cargo build --release
-```
-
-The binary lands at `target\release\tengwar.exe`. Double-click it, or run from PowerShell:
-
-```powershell
-.\target\release\tengwar.exe
-```
-
-To install system-wide, copy `tengwar.exe` anywhere on your `PATH`. There's no installer or Start Menu entry yet — right-click the `.exe` and choose **Send to → Desktop (create shortcut)** if you want one.
-
-**Known limitation on Windows:** Git push / pull requires a GitHub Personal Access Token, set via the 🔑 button in the sidebar. OAuth is not implemented.
 
 ### From source (any Linux distribution)
 

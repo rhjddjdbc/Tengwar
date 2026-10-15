@@ -82,6 +82,7 @@ function handleDropdownAction(action) {
     case 'toggle-scrollsync': applyScrollSync(!scrollSyncEnabled); break;
     case 'edit-theme': openThemeEditor(document.body.classList.contains('preview-dark') ? 'dark' : 'light'); break;
     case 'edit-keybindings': openKeybindings(); break;
+    case 'open-templates-settings': openTemplatesSettings(); break;
   }
 }
 

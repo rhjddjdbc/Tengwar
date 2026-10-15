@@ -1,11 +1,4 @@
 //! Tengwar — library crate.
-//!
-//! The Tauri application is exposed as a single `run()` function so
-//! that:
-//!   - `main.rs` is a 3-line binary that just calls `tengwar::run()`
-//!   - integration tests (`tests/*.rs`) and examples can use every
-//!     public module without needing to launch the GUI
-//!   - doc-tests on public items run automatically via `cargo test`
 
 pub mod diagram;
 pub mod export;
@@ -21,8 +14,6 @@ pub mod watcher;
 use std::sync::Mutex;
 use state::AppState;
 
-/// Entry point for the Tengwar desktop app. Wires up the Tauri builder
-/// and blocks on the event loop until the user closes the window.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -43,6 +34,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vim::vim_handle_key,
             vim::vim_set_text,
+            vim::vim_replace_range,
             vim::vim_load_text,
             vim::vim_mark_saved,
             vim::vim_get_text,
@@ -60,6 +52,10 @@ pub fn run() {
             fs_ops::list_dir,
             fs_ops::image_to_data_url,
             fs_ops::search_in_files,
+            fs_ops::find_backlinks,
+            fs_ops::list_md_files_abs,
+            fs_ops::read_text_file_abs,
+            fs_ops::write_text_file_abs,
             export::export_html,
             git::git_init,
             git::git_status,

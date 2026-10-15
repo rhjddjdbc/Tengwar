@@ -55,7 +55,17 @@ function applySnapshot(snap, { scroll = true } = {}) {
     editorTA.setSelectionRange(aJs, bEnd);
     caretPos = bJs;
   } else {
-    const cByte = Math.max(0, Math.min(snap.cursor, snap.text.length));
+    // snap.cursor is a UTF-8 byte offset from Rust. byteToJsIndex
+    // converts it to a JS character index and stops internally when
+    // it reaches the end of the string, so no manual clamp is needed.
+    //
+    // The previous Math.min(snap.cursor, snap.text.length) clamp
+    // broke on files containing multi-byte characters (umlauts,
+    // accents, CJK, emoji): snap.text.length is the JS character
+    // count, but snap.cursor is a byte offset, so at the end of a
+    // file the byte offset exceeds the character count and was
+    // clamped to the wrong number.
+    const cByte = Math.max(0, snap.cursor);
     const cJs = byteToJsIndex(text, cByte);
     editorTA.selectionStart = editorTA.selectionEnd = cJs;
     caretPos = cJs;

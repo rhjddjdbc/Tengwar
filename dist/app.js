@@ -37,7 +37,13 @@
     "js/30-init.js",
     "js/31-block-editor.js",
     "js/32-history.js",
-    "js/33-vaults.js"
+    "js/33-vaults.js",
+    "js/34-backlinks.js",
+    "js/35-sidebar-sections.js",
+    "js/36-outline.js",
+    "js/37-wikilink-autocomplete.js",
+    "js/38-frontmatter.js",
+    "js/39-templates.js"
   ];
 
   function loadScript(src) {
