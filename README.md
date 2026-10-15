@@ -1,6 +1,6 @@
 # Tengwar
 
-**A native Markdown editor with diagrams, LaTeX, Git, and Vim — built on Rust + Tauri.**
+**A native Markdown editor with diagrams, LaTeX, Git, templates, and Vim — built on Rust + Tauri.**
 
 Tengwar renders 19 diagram types directly in Rust (no Mermaid.js, no headless browser), typesets LaTeX via MathML, integrates Git through libgit2, and ships a real Vim state machine. Everything runs offline, everything fits in one binary.
 
@@ -21,12 +21,20 @@ Tengwar renders 19 diagram types directly in Rust (no Mermaid.js, no headless br
 - **Fuzzy find** across files (`Ctrl+P`) and inside the current file (`Ctrl+F`)
 - **Search in all files** (`Ctrl+Alt+F`) with grouped results and line numbers
 - **Command palette** (`Ctrl+Shift+K`) covering every action
+- **Wikilink autocomplete** — typing `[[` opens a popup with the vault's files, filterable, keyboard-navigable. Works in standard and block editor, with or without Vim
 - **Crash recovery** — unsaved buffers come back after a restart
 
 ### Multi-Vault
 - **Recent vaults dropdown** in the sidebar header — switch between folders with one click
 - **Session persistence** — the last opened vault, its tabs, and the active tab are restored on startup
 - **Missing vaults** are pruned automatically
+
+### Sidebar panels
+- **Backlinks** — every file in the vault that links to the currently open one, with line number and snippet. Click to jump
+- **Outline** — a flat table of contents for the current file, indented by heading depth, skipping headings inside code fences. Click to scroll both preview and editor
+- **Frontmatter** — parses the YAML block at the top of a file (`---\n key: value \n---\n`) into an editable key/value form. Add, edit, and remove fields; changes write back to the source with a 400 ms debounce
+- **File tree** with git status badges, folder collapse, and a context menu (rename, delete, new file, new folder)
+- All panels collapse via their headers; collapsed state is remembered
 
 ### Preview
 - **Live Markdown preview** with scroll-sync
@@ -50,6 +58,14 @@ Rendered in-process to SVG. No external dependencies at runtime. Every color com
 | Architecture | `C4Context`, `mindmap`, `gitGraph` |
 
 Hover any diagram for **SVG / PNG** download buttons. Exported SVGs keep their theme through inlined CSS variables.
+
+### Templates & Journal
+- **Vault-local templates** — a `<vault>/templates/` folder is created automatically the first time you open a vault. Drop a `.template` file in it and it shows up in the command palette as *New from &lt;name&gt;*
+- **Global templates** — point Settings → Templates & journal at a folder of regular `.md` files, available in every vault from then on
+- **Vault wins on collision** — same stem, vault-local template overrides the global one. `meeting.template` in the vault beats `meeting.md` in the global folder
+- **Placeholders** — `{{title}}`, `{{date}}`, `{{time}}`, `{{filename}}` substituted when a note is created from a template
+- **Daily notes** — a single global journal folder, set once in Settings. `Ctrl+Shift+T` opens (or creates) today's note (`YYYY-MM-DD.md`) there. The same folder is shared across every vault. If a template called `daily` exists (vault-local or global), it seeds the new file
+- **Three-way "New File" picker** — right-click a folder → *New File…* → choose **Normal note** / **Template** / **Journal entry**
 
 ### Git
 - **Status** indicators per file in the sidebar (M / A / D / U / S)
@@ -100,7 +116,7 @@ cd tengwar
 ./build.sh
 ```
 
-`build.sh` runs the Rust tests, then optionally the frontend tests if a headless browser is available, then compiles the release binary, installs it to `/usr/local/bin/tengwar`, drops a `.desktop` file into `/usr/share/applications`, installs the icon, and refreshes the desktop + icon caches.
+`build.sh` runs the Rust tests, then compiles the release binary, installs it to `/usr/local/bin/tengwar`, drops a `.desktop` file into `/usr/share/applications`, installs the icon, and refreshes the desktop + icon caches.
 
 Launch it with:
 
@@ -123,7 +139,7 @@ The binary is self-contained — no runtime dependencies beyond the GTK stack th
 
 ## Usage
 
-1. **Open Folder** — pick a directory containing your `.md` files, or click the vault button to switch to a recently-opened folder. Tengwar walks it recursively, skipping `.git`, `node_modules`, `target`, `dist`, and dotfiles.
+1. **Open Folder** — pick a directory containing your `.md` files, or click the vault button to switch to a recently-opened folder. Tengwar walks it recursively, skipping `.git`, `node_modules`, `target`, `dist`, and dotfiles. A `<vault>/templates/` folder is created on first open.
 2. **Click any file** in the sidebar — it opens as a tab.
 3. **Start typing.** Preview updates as you go. Auto-save is opt-in.
 4. **Drag the divider** between editor and preview to resize. Double-click it to reset.
@@ -132,6 +148,27 @@ The binary is self-contained — no runtime dependencies beyond the GTK stack th
 7. **Hover a diagram** to reveal SVG / PNG download buttons.
 
 The session (folder, open tabs, active tab, zoom) persists across restarts via `localStorage`.
+
+### Working with templates
+
+**Vault-local** (no setup): right-click the sidebar → *New File…* → *Template*, give it a name, and it lands in `<vault>/templates/<name>.template`. Write markdown, save, then `Ctrl+Shift+K` → `<name>` → *New from &lt;name&gt;*.
+
+**Global** (once per machine): put `meeting.md`, `daily.md` in a folder somewhere, then Settings → Templates & journal → **Templates folder (global)** → *Choose…*. Available in every vault from then on. On a name collision the vault-local template wins.
+
+**Placeholders** in a template body:
+
+| Placeholder | Substituted with |
+|-------------|------------------|
+| `{{title}}` | The title entered in the New-from dialog |
+| `{{date}}` | Today, `YYYY-MM-DD` |
+| `{{time}}` | Now, `HH:MM` |
+| `{{filename}}` | The generated filename, e.g. `meeting-2026-10-15.md` |
+
+### Journal
+
+Settings → Templates & journal → **Journal folder** → *Choose…*. Then `Ctrl+Shift+T` opens today's note (`YYYY-MM-DD.md`) in that folder, creating it first if needed. If a template called `daily` exists (vault-local or global), it seeds the new file.
+
+The journal folder is global — the same file is opened in every vault. Journal files are normal tabs; `Ctrl+S` writes them back to disk.
 
 ---
 
@@ -148,6 +185,7 @@ Every shortcut below is rebindable from **Settings → Keyboard shortcuts…**.
 | `Ctrl+N` | New file |
 | `Ctrl+O` | Open folder |
 | `Ctrl+Alt+P` | Print / PDF |
+| `Ctrl+Shift+T` | Today's note |
 
 ### Edit
 
@@ -218,6 +256,15 @@ Supported normal-mode keys: `h j k l`, `w b e`, `0 $`, `gg G`, `i a I A o O`, `v
 | `Ctrl+Z` | Undo within block, then step back one commit |
 | `Ctrl+Click` on link | Open the link (wiki: → file, http(s) → external) |
 
+### Wikilink autocomplete
+
+| Shortcut | Action |
+|----------|--------|
+| `[[` | Open the autocomplete popup |
+| `↑` / `↓` | Move selection |
+| `Enter` / `Tab` | Insert the selected target |
+| `Esc` | Close the popup |
+
 ---
 
 ## Architecture
@@ -249,15 +296,15 @@ tengwar/
 │   ├── state.rs
 │   ├── vim.rs
 │   ├── markdown.rs
-│   ├── fs_ops.rs
+│   ├── fs_ops.rs                # incl. absolute-path I/O for templates/journal
 │   ├── git.rs
 │   ├── search.rs
 │   ├── watcher.rs
 │   ├── export.rs
 │   ├── link_graph.rs
 │   └── diagram/
-│       ├── mod.rs
-│       ├── common.rs
+│       ├── mod.rs               # dispatcher
+│       ├── common.rs            # shared SVG scaffolding + theme CSS
 │       ├── block.rs    c4.rs        class.rs     er.rs
 │       ├── flowchart.rs gantt.rs    gitgraph.rs  journey.rs
 │       ├── kanban.rs   mindmap.rs   packet.rs    pie.rs
@@ -267,12 +314,15 @@ tengwar/
 └── dist/                        # frontend — served as frontendDist
     ├── index.html
     ├── styles.css               # reset + body + scrollbars + print
-    ├── app.js                   # sequential loader for the 33 js/ modules
+    ├── app.js                   # sequential loader for the 39 js/ modules
     ├── welcome.md
     ├── css/
     │   ├── theme.css            # :root + body.preview-dark variables
-    │   ├── chrome.css           # sidebar, toolbar, tabs, statusbar
-    │   ├── editor.css           # editor overlay, tokens, block editor, no-file banner
+    │   ├── chrome.css           # sidebar, toolbar, tabs, statusbar,
+    │   │                        # sidebar sections, backlinks/outline/
+    │   │                        # frontmatter panels, wikilink popup
+    │   ├── editor.css           # editor overlay, tokens, block editor,
+    │   │                        # no-file banner
     │   ├── preview.css          # preview pane, diagrams, math
     │   └── modals.css           # every popup and overlay
     └── js/
@@ -308,16 +358,24 @@ tengwar/
         ├── 30-init.js
         ├── 31-block-editor.js
         ├── 32-history.js
-        └── 33-vaults.js
+        ├── 33-vaults.js
+        ├── 34-backlinks.js
+        ├── 35-sidebar-sections.js
+        ├── 36-outline.js
+        ├── 37-wikilink-autocomplete.js
+        ├── 38-frontmatter.js
+        └── 39-templates.js
 ```
 
 ### The frontend is plain JavaScript
 
-No bundler, no framework, no transpiler. Thirty-three classic scripts are loaded sequentially by `app.js` and share one global scope. This makes the editor debuggable with DevTools alone and eliminates the entire Node toolchain from the build.
+No bundler, no framework, no transpiler. Thirty-nine classic scripts are loaded sequentially by `app.js` and share one global scope. This makes the editor debuggable with DevTools alone and eliminates the entire Node toolchain from the build.
 
 ### The backend is a plain Tauri app
 
 Every command returns `Result<T, String>` so failures surface as clean toasts instead of panics. File operations are confined to the workspace root that the frontend declares via `set_workspace_root` after opening a folder — the backend rejects any path that escapes it.
+
+The three exceptions (`list_md_files_abs`, `read_text_file_abs`, `write_text_file_abs`) exist so the global templates folder and the journal can live outside the vault. They only ever receive paths the user picked through a native OS dialog.
 
 ### Rendering is one-way
 
@@ -328,7 +386,8 @@ Markdown → HTML → SVG happens entirely in Rust. The preview, the HTML export
 ## Security
 
 - **CSP** is set to `default-src 'self'` with explicit exceptions for Tauri's IPC and inline styles.
-- **All file commands** check that the target lives inside the currently open workspace. Escape attempts are rejected with a `Path outside workspace` error.
+- **All workspace file commands** check that the target lives inside the currently open workspace. Escape attempts are rejected with a `Path outside workspace` error.
+- **Three absolute-path commands** (`list_md_files_abs`, `read_text_file_abs`, `write_text_file_abs`) bypass that check. They exist for the templates and journal features, and only ever receive paths the user picked through a native OS dialog.
 - **Git tokens** are stored in `sessionStorage` and cleared when the app exits. They are never logged, never written to disk, and only sent to `origin`.
 - **Markdown HTML** is rendered with CSP-protected `innerHTML` — no inline scripts, no `javascript:` URLs.
 
@@ -338,7 +397,7 @@ Markdown → HTML → SVG happens entirely in Rust. The preview, the HTML export
 
 Two test suites.
 
-**Rust integration tests** (56 tests, one file per module):
+**Rust integration tests** (one file per module):
 
 ```bash
 cargo test
@@ -371,7 +430,7 @@ cargo build
 # Release build (LTO, opt-level=s, stripped)
 cargo build --release
 
-# Full pipeline: Rust tests + frontend tests + release + system install
+# Full pipeline: Rust tests + release + system install
 ./build.sh
 ```
 
