@@ -12,25 +12,33 @@ Tengwar renders 19 diagram types directly in Rust (no Mermaid.js, no headless br
 
 ### Editing
 - **Tabs** with unsaved-change indicators, `Ctrl+W` / `Ctrl+Tab` navigation
-- **Vim mode** with Normal / Insert / Visual, counts, undo/redo, `:s/old/new/g`, marks and yank buffer
+- **Vim mode** with Normal / Insert / Visual, counts, undo/redo, `:s/old/new/g`, yank buffer and `.`-repeat
+- **Block editor** — Notion-style "edit the render": click a paragraph, it becomes raw markdown, click out it re-renders. `Enter` = line break, `Shift+Enter` = new block
+- **Undo / redo** across every mode, with toolbar buttons and a 400 ms typing-burst grouping
 - **Auto-save** (toggle) with atomic writes
 - **Auto-pairing** for brackets, quotes, backticks, asterisks
 - **Find & replace** with regex and case-sensitivity
 - **Fuzzy find** across files (`Ctrl+P`) and inside the current file (`Ctrl+F`)
 - **Search in all files** (`Ctrl+Alt+F`) with grouped results and line numbers
-- **Command palette** (`Ctrl+Shift+K`) covering every action, including format helpers
+- **Command palette** (`Ctrl+Shift+K`) covering every action
 - **Crash recovery** — unsaved buffers come back after a restart
 
+### Multi-Vault
+- **Recent vaults dropdown** in the sidebar header — switch between folders with one click
+- **Session persistence** — the last opened vault, its tabs, and the active tab are restored on startup
+- **Missing vaults** are pruned automatically
+
 ### Preview
-- **Live Markdown preview** with scroll-sync (per-origin tracking to avoid feedback loops)
+- **Live Markdown preview** with scroll-sync
 - **LaTeX** — inline `$E = mc^2$` and display `$$ … $$` via native MathML
 - **Task lists** that are clickable and mutate the source
-- **Wikilinks** — `[[Target]]` and `[[Target|Display]]` resolve against the open folder, broken links are flagged
-- **Local images** embedded as data URLs, so the preview works without a web server
+- **Wikilinks** — `[[Target]]` and `[[Target|Display]]` resolve against the open folder; targets with spaces (`[[Big O Notation]]`) work
+- **Local images** embedded as data URLs
 - **Zoom** controls — `−`, `100%`, `+`, and Fit-to-width
+- **Theme-aware** — preview background, headings, code, blockquotes, and diagrams follow the active theme
 
 ### Diagrams (19 types)
-Rendered in-process to SVG. No external dependencies at runtime.
+Rendered in-process to SVG. No external dependencies at runtime. Every color comes from a CSS variable, so diagrams follow the active theme.
 
 | Family | Types |
 |--------|-------|
@@ -41,22 +49,22 @@ Rendered in-process to SVG. No external dependencies at runtime.
 | Planning | `gantt`, `timeline`, `journey`, `kanban` |
 | Architecture | `C4Context`, `mindmap`, `gitGraph` |
 
-Hover any diagram for **SVG / PNG** download buttons. Diagram colors follow the app theme through CSS variables, so exported SVGs still look right in a browser.
+Hover any diagram for **SVG / PNG** download buttons. Exported SVGs keep their theme through inlined CSS variables.
 
 ### Git
 - **Status** indicators per file in the sidebar (M / A / D / U / S)
 - **Stage all + commit** from the sidebar
-- **Fetch / pull / push** against `origin`
+- **Fetch / pull / push** against `origin` — pull detects divergence and reports instead of silently no-oping
 - **Branch list + checkout**
-- **Diff viewer** with unstaged / staged toggle
+- **Diff viewer** with unstaged / staged toggle, opened from the sidebar
 - **Clone** and **init** buttons
 - **HTTPS token** stored in `sessionStorage` (never written to disk)
 
 ### Appearance
 - **Light / dark** preview themes
 - **8 built-in presets** — Default, Solarized, Nord, Gruvbox, Dracula, Monokai, Tokyo Night, Catppuccin
-- **Theme editor** with live preview — edit app, syntax, diagram, and diagram-box colors independently for light and dark modes
-- **Theme export/import** as JSON
+- **Theme editor** with live preview — edit app, syntax, diagram, and diagram-box colors independently
+- **Theme export / import** as JSON
 - **Keybinding editor** — every shortcut is rebindable, conflicts are flagged
 - **Layout controls** — split direction, pane swap, focus editor / focus preview, reset
 
@@ -92,7 +100,7 @@ cd tengwar
 ./build.sh
 ```
 
-`build.sh` compiles the release binary, installs it to `/usr/local/bin/tengwar`, drops a `.desktop` file into `/usr/share/applications`, installs the icon, and refreshes the desktop + icon caches.
+`build.sh` runs the Rust tests, then optionally the frontend tests if a headless browser is available, then compiles the release binary, installs it to `/usr/local/bin/tengwar`, drops a `.desktop` file into `/usr/share/applications`, installs the icon, and refreshes the desktop + icon caches.
 
 Launch it with:
 
@@ -103,8 +111,6 @@ tengwar
 Or find it in your application menu under **Development**.
 
 ### Manual build
-
-If you'd rather not run the install script:
 
 ```bash
 cargo build --release
@@ -117,11 +123,13 @@ The binary is self-contained — no runtime dependencies beyond the GTK stack th
 
 ## Usage
 
-1. **Open Folder** — pick a directory containing your `.md` files. Tengwar walks it recursively, skipping `.git`, `node_modules`, `target`, `dist`, and dotfiles.
+1. **Open Folder** — pick a directory containing your `.md` files, or click the vault button to switch to a recently-opened folder. Tengwar walks it recursively, skipping `.git`, `node_modules`, `target`, `dist`, and dotfiles.
 2. **Click any file** in the sidebar — it opens as a tab.
 3. **Start typing.** Preview updates as you go. Auto-save is opt-in.
 4. **Drag the divider** between editor and preview to resize. Double-click it to reset.
-5. **Hover a diagram** to reveal SVG / PNG download buttons.
+5. **Right-click a folder** to create files or subfolders inside it, or delete it.
+6. **Toggle Block editor** in Settings for a Notion-style preview-in-editor mode.
+7. **Hover a diagram** to reveal SVG / PNG download buttons.
 
 The session (folder, open tabs, active tab, zoom) persists across restarts via `localStorage`.
 
@@ -145,6 +153,8 @@ Every shortcut below is rebindable from **Settings → Keyboard shortcuts…**.
 
 | Shortcut | Action |
 |----------|--------|
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 | `Ctrl+P` | Fuzzy-find files |
 | `Ctrl+F` | Fuzzy-find lines in current file |
 | `Ctrl+H` | Find & replace (regex) |
@@ -193,76 +203,117 @@ Press `:` in Normal mode to open the command popup:
 | `:42` | Go to line 42 |
 | `:s/old/new/g` | Substitute |
 
-The state machine supports `h j k l`, `w b e`, `0 $`, `gg G`, `i a I A o O`, `v V`, `d c y p x`, `u Ctrl+R`, `.`, counts, and `[` `]` for indent adjustment.
+Supported normal-mode keys: `h j k l`, `w b e`, `0 $`, `gg G`, `i a I A o O`, `v V`, `d c y p x`, `u` (undo), `Ctrl+R` (redo), `.` (repeat). Counts work (`3dd` deletes three lines).
+
+### Block editor
+
+| Shortcut | Action |
+|----------|--------|
+| `Enter` | Line break inside the block |
+| `Shift+Enter` at end | New block below |
+| `Backspace` at start | Merge with previous block |
+| `ArrowUp` / `ArrowDown` at edge | Move to adjacent block |
+| `Esc` | Commit and leave |
+| `Ctrl+S` | Commit and save |
+| `Ctrl+Z` | Undo within block, then step back one commit |
+| `Ctrl+Click` on link | Open the link (wiki: → file, http(s) → external) |
 
 ---
 
 ## Architecture
 
-The project uses Tauri 2's flat layout — the Rust crate and the frontend live side by side at the repository root, with no separate `src-tauri/` wrapper.
+The project uses Tauri 2's flat layout — the Rust crate and the frontend live side by side at the repository root, with no separate `src-tauri/` wrapper. `src/lib.rs` holds the Tauri builder so that integration tests in `tests/` can import the modules without launching the GUI.
 
 ```
 tengwar/
-├── Cargo.toml              # Rust crate manifest
+├── Cargo.toml
 ├── Cargo.lock
-├── build.rs                # Tauri build script
-├── tauri.conf.json         # Tauri app config (frontendDist: ./dist)
-├── build.sh                # release build + /usr/local install
-├── PKGBUILD                # Arch Linux package build
-├── tengwar.desktop         # freedesktop launcher entry
+├── build.rs
+├── tauri.conf.json
+├── build.sh
+├── PKGBUILD
 ├── readme.md
 ├── capabilities/
-│   └── default.json        # Tauri permission set
+│   └── default.json
 ├── icons/
 │   └── icon.png
-├── src/                    # Rust backend
-│   ├── main.rs             # Tauri builder + command registry
-│   ├── state.rs            # Mutex-wrapped VimState
-│   ├── vim.rs              # Vim state machine
-│   ├── markdown.rs         # pulldown-cmark → HTML, math, wikilinks
-│   ├── fs_ops.rs           # file I/O, workspace confinement, search
-│   ├── git.rs              # libgit2 wrapper
-│   ├── search.rs           # nucleo-matcher fuzzy find
-│   ├── watcher.rs          # notify-based file watcher
-│   ├── export.rs           # standalone HTML export
-│   ├── link_graph.rs       # wikilink graph builder
+├── tests/                       # integration + frontend tests
+│   ├── vim.rs
+│   ├── markdown.rs
+│   ├── link_graph.rs
+│   ├── diagram.rs
+│   └── frontend.html            # runs in the browser, 100+ pure-function tests
+├── src/                         # Rust backend
+│   ├── lib.rs                   # Tauri builder + pub fn run()
+│   ├── main.rs                  # 3-line entry point
+│   ├── state.rs
+│   ├── vim.rs
+│   ├── markdown.rs
+│   ├── fs_ops.rs
+│   ├── git.rs
+│   ├── search.rs
+│   ├── watcher.rs
+│   ├── export.rs
+│   ├── link_graph.rs
 │   └── diagram/
-│       ├── mod.rs          # dispatcher
-│       ├── common.rs       # shared SVG scaffolding + theme CSS
-│       ├── block.rs
-│       ├── c4.rs
-│       ├── class.rs
-│       ├── er.rs
-│       ├── flowchart.rs
-│       ├── gantt.rs
-│       ├── gitgraph.rs
-│       ├── journey.rs
-│       ├── kanban.rs
-│       ├── mindmap.rs
-│       ├── packet.rs
-│       ├── pie.rs
-│       ├── quadrant.rs
-│       ├── requirement.rs
-│       ├── sankey.rs
-│       ├── sequence.rs
-│       ├── state.rs
-│       ├── timeline.rs
-│       └── xychart.rs
-└── dist/                   # frontend — served as frontendDist
+│       ├── mod.rs
+│       ├── common.rs
+│       ├── block.rs    c4.rs        class.rs     er.rs
+│       ├── flowchart.rs gantt.rs    gitgraph.rs  journey.rs
+│       ├── kanban.rs   mindmap.rs   packet.rs    pie.rs
+│       ├── quadrant.rs requirement.rs sankey.rs  sequence.rs
+│       ├── state.rs    timeline.rs  xychart.rs
+│       └── ...
+└── dist/                        # frontend — served as frontendDist
     ├── index.html
-    ├── styles.css
-    ├── app.js              # sequential loader for the 30 js/ modules
+    ├── styles.css               # reset + body + scrollbars + print
+    ├── app.js                   # sequential loader for the 33 js/ modules
     ├── welcome.md
+    ├── css/
+    │   ├── theme.css            # :root + body.preview-dark variables
+    │   ├── chrome.css           # sidebar, toolbar, tabs, statusbar
+    │   ├── editor.css           # editor overlay, tokens, block editor, no-file banner
+    │   ├── preview.css          # preview pane, diagrams, math
+    │   └── modals.css           # every popup and overlay
     └── js/
         ├── 01-core.js
         ├── 02-highlight.js
-        ├── …                # 30 files total, loaded in numeric order
-        └── 30-init.js
+        ├── 03-preview.js
+        ├── 04-preview-interactive.js
+        ├── 05-scroll-sync.js
+        ├── 06-vim.js
+        ├── 07-editing.js
+        ├── 08-tabs.js
+        ├── 09-toggles.js
+        ├── 10-keybindings.js
+        ├── 11-keybindings-editor.js
+        ├── 12-editor-keys.js
+        ├── 13-command-palette.js
+        ├── 14-find-replace.js
+        ├── 15-search.js
+        ├── 16-modal.js
+        ├── 17-filesystem.js
+        ├── 18-context-menu.js
+        ├── 19-git.js
+        ├── 20-export.js
+        ├── 21-toolbar.js
+        ├── 22-search-all.js
+        ├── 23-recovery.js
+        ├── 24-diff-viewer.js
+        ├── 25-graph-data.js
+        ├── 26-graph-view.js
+        ├── 27-theme-presets.js
+        ├── 28-theme-editor.js
+        ├── 29-layout.js
+        ├── 30-init.js
+        ├── 31-block-editor.js
+        ├── 32-history.js
+        └── 33-vaults.js
 ```
 
 ### The frontend is plain JavaScript
 
-No bundler, no framework, no transpiler. Thirty classic scripts are loaded sequentially by `app.js` and share one global scope. This makes the editor debuggable with DevTools alone and eliminates the entire Node toolchain from the build.
+No bundler, no framework, no transpiler. Thirty-three classic scripts are loaded sequentially by `app.js` and share one global scope. This makes the editor debuggable with DevTools alone and eliminates the entire Node toolchain from the build.
 
 ### The backend is a plain Tauri app
 
@@ -283,6 +334,34 @@ Markdown → HTML → SVG happens entirely in Rust. The preview, the HTML export
 
 ---
 
+## Testing
+
+Two test suites.
+
+**Rust integration tests** (56 tests, one file per module):
+
+```bash
+cargo test
+```
+
+Covers:
+- `tests/vim.rs` — state machine, undo grouping, UTF-8 safety, counts, visual mode
+- `tests/markdown.rs` — wikilink preprocessing, soft-break rendering, HTML escaping
+- `tests/link_graph.rs` — `[[…]]` extraction edge cases
+- `tests/diagram.rs` — smoke tests for all 19 renderers
+
+**Frontend pure-function tests** (100+ tests, runs in the browser):
+
+```
+tests/frontend.html
+```
+
+Open the file in any browser. It loads the real source files, stubs the DOM and Tauri minimally, and runs assertions against `escapeHtml`, `byteToJsIndex`, `highlightMarkdown`, `resolveWikiTarget`, `normalizeCombo`, `splitIntoBlocks`, `vaultName`, `THEME_VARS`, `PRESETS`, and more. Green means the pure logic is intact.
+
+`./build.sh` runs the Rust tests automatically and, if a headless Chromium is available, also drives the frontend tests and gates the build on the result.
+
+---
+
 ## Building
 
 ```bash
@@ -292,7 +371,7 @@ cargo build
 # Release build (LTO, opt-level=s, stripped)
 cargo build --release
 
-# Full system install to /usr/local
+# Full pipeline: Rust tests + frontend tests + release + system install
 ./build.sh
 ```
 
@@ -304,7 +383,8 @@ cargo build --release
 
 Issues and pull requests are welcome. Before opening a PR:
 
-- Run `cargo clippy --all-targets` and fix any warnings.
+- Run `cargo test` and `cargo clippy --all-targets`, fix any warnings.
+- Open `tests/frontend.html` in a browser and check that the frontend tests still pass.
 - Verify that the change works in both light and dark preview modes.
 - If you touch a diagram renderer, include a small `.md` snippet in the PR description that reproduces the before/after.
 
